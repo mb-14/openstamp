@@ -15,21 +15,17 @@ class MbClusterDetector(torch.nn.Module):
         self.final_weight = self.final_weight.to(
             self.model.device)
 
-    def forward(self, x, get_hidden_states=False):
+    def forward(self, x):
         outputs = self.model(**x)
         hidden_states = outputs.logits
-        if get_hidden_states:
-            return hidden_states
-
-        hidden_states = hidden_states.to(self.final_weight.dtype)
         selectors = torch.matmul(
-            hidden_states, self.final_weight.T)
+            hidden_states.to(self.final_weight.dtype), self.final_weight.T)
         clusters = torch.argmax(selectors, dim=-1)
-        return clusters
+        return clusters, hidden_states
 
 
 class MbMark:
-    def __init__(self, delta, gamma, seed, final_weight, model, tokenizer, unembedding_param_name, mode="detect"):
+    def __init__(self, delta, gamma, seed, final_weight, model, tokenizer, unembedding_param_name,  mode="detect", llr_mean=None, llr_std=None):
         self.seed = seed
         self.delta = delta
         self.gamma = gamma
@@ -41,6 +37,8 @@ class MbMark:
         self.unembedding_matrix = getattr(
             model, unembedding_param_name).weight.data
         self.unembedding_matrix.requires_grad = False
+        self.llr_mean = llr_mean
+        self.llr_std = llr_std
         assert self.unembedding_matrix.shape[0] == self.vocab_size, "Unembedding matrix and watermarking matrix must have the same vocab size"
         if mode == "detect":
             self.cluster_detector = MbClusterDetector(
@@ -91,107 +89,60 @@ class MbMark:
 
         self.model = model
 
-    def score_lrt(self, batch_text, mean, std):
-        lrts = self.lrt(batch_text)
-        scores = (lrts - mean) / std
-        p_values = 1 - torch.distributions.Normal(0, 1).cdf(scores)
-        return scores, p_values
+    @torch.no_grad()
+    def lrt(self, hidden_states, inputs):
+        input_ids = inputs.input_ids
+        attention_mask = inputs.attention_mask
 
-    def lrt(self, batch_text):
-        with torch.no_grad():
-            inputs = self.tokenizer(batch_text, padding=True,
-                                    return_tensors="pt").to(self.cluster_detector.device)
+        # Ignore BOS token
+        # Labels are the next-token shifted version of input_ids
+        labels = input_ids[:, 2:].clone().to(self.unembedding_matrix.device)
+        attention_mask = attention_mask[:, 2:].to(
+            self.unembedding_matrix.device)
+        hidden_states = hidden_states[:, 1:-
+                                      1].to(self.unembedding_matrix.device)
 
-            hidden_states = self.cluster_detector(
-                inputs, get_hidden_states=True)
-            input_ids = inputs.input_ids
-            attention_mask = inputs.attention_mask
+        delta_mat = torch.matmul(
+            self.watermarking_matrix, self.final_weight)
 
-            # Ignore BOS token
-            # Labels are the next-token shifted version of input_ids
-            labels = input_ids[:, 2:].clone().to(self.unembedding_matrix.device)
-            attention_mask = attention_mask[:, 2:].to(self.unembedding_matrix.device)
-            hidden_states = hidden_states[:, 1:-
-                                          1].to(self.unembedding_matrix.device)
+        delta_mat = delta_mat.to(self.unembedding_matrix.device).to(
+            self.unembedding_matrix.dtype)
 
-            delta_mat = torch.matmul(
-                self.watermarking_matrix, self.final_weight)
+        W_mod = self.unembedding_matrix + delta_mat
+        logits_base = hidden_states @ self.unembedding_matrix.T
+        logits_marked = hidden_states @ W_mod.T        # (B, T, V)
 
-            delta_mat = delta_mat.to(self.unembedding_matrix.device).to(
-                self.unembedding_matrix.dtype)
+        # Compute log-probs
+        log_probs_base = torch.nn.functional.log_softmax(
+            logits_base, dim=-1)
+        log_probs_marked = torch.nn.functional.log_softmax(
+            logits_marked, dim=-1)
 
-            W_mod = self.unembedding_matrix + delta_mat
-            logits_base = hidden_states @ self.unembedding_matrix.T
-            logits_marked = hidden_states @ W_mod.T        # (B, T, V)
+        # Gather the log-prob of the actual token
+        log_probs_base = log_probs_base.gather(
+            2, labels.unsqueeze(-1)).squeeze(-1)  # (B, T)
+        log_probs_marked = log_probs_marked.gather(
+            2, labels.unsqueeze(-1)).squeeze(-1)
 
-            # Compute log-probs
-            log_probs_base = torch.nn.functional.log_softmax(
-                logits_base, dim=-1)
-            log_probs_marked = torch.nn.functional.log_softmax(
-                logits_marked, dim=-1)
+        mask = attention_mask.bool()
+        log_probs_base = log_probs_base.masked_fill(~mask, 0.0)
+        log_probs_marked = log_probs_marked.masked_fill(~mask, 0.0)
 
-            # Gather the log-prob of the actual token
-            log_probs_base = log_probs_base.gather(
-                2, labels.unsqueeze(-1)).squeeze(-1)  # (B, T)
-            log_probs_marked = log_probs_marked.gather(
-                2, labels.unsqueeze(-1)).squeeze(-1)
+        # Average over valid tokens
+        avg_ll_base = log_probs_base.sum(dim=1) / mask.sum(dim=1)
+        avg_ll_marked = log_probs_marked.sum(dim=1) / mask.sum(dim=1)
 
-            mask = attention_mask.bool()
-            log_probs_base = log_probs_base.masked_fill(~mask, 0.0)
-            log_probs_marked = log_probs_marked.masked_fill(~mask, 0.0)
+        log_ppl_ratio = avg_ll_marked - avg_ll_base
+        # Clean up
+        del inputs, hidden_states, log_probs_base, log_probs_marked
+        del logits_base, logits_marked, labels
+        del W_mod, delta_mat
+        del attention_mask, mask
+        del avg_ll_base, avg_ll_marked
+        torch.cuda.empty_cache()
 
-            # Average over valid tokens
-            avg_ll_base = log_probs_base.sum(dim=1) / mask.sum(dim=1)
-            avg_ll_marked = log_probs_marked.sum(dim=1) / mask.sum(dim=1)
-            
-            log_ppl_ratio = avg_ll_marked - avg_ll_base
-            # Clean up
-            del inputs, hidden_states, log_probs_base, log_probs_marked
-            del logits_base, logits_marked, labels
-            del W_mod, delta_mat
-            del attention_mask, mask
-            del avg_ll_base, avg_ll_marked
-            torch.cuda.empty_cache()
-            return log_ppl_ratio.cpu().float()
+        return log_ppl_ratio.cpu().float()
         
-    def boosting_score(self, batch_text):
-        with torch.no_grad():
-            inputs = self.tokenizer(batch_text, padding=True,
-                                    return_tensors="pt").to(self.cluster_detector.device)
-
-            hidden_states = self.cluster_detector(
-                inputs, get_hidden_states=True)
-            input_ids = inputs.input_ids
-            attention_mask = inputs.attention_mask
-
-            # Ignore BOS token
-            labels = input_ids[:, 2:].clone().to(self.unembedding_matrix.device)
-            attention_mask = attention_mask[:, 2:].to(self.unembedding_matrix.device)
-            hidden_states = hidden_states[:, 1:-1].to(self.unembedding_matrix.device)
-
-            # delta_mat: shape (V, d)
-            delta_mat = torch.matmul(self.watermarking_matrix, self.final_weight)
-            delta_mat = delta_mat.to(self.unembedding_matrix.device).to(self.unembedding_matrix.dtype)
-
-            # Compute logit boost directly: (B, T, V)
-            delta_logits = hidden_states @ delta_mat.T
-
-            # Get the delta logit for the actual token: (B, T)
-            logit_boost = delta_logits.gather(2, labels.unsqueeze(-1)).squeeze(-1)
-
-            # Mask out padding tokens
-            mask = attention_mask.bool()
-            logit_boost = logit_boost.masked_fill(~mask, 0.0)
-
-            # Sum across valid tokens
-            total_logit_boost = logit_boost.sum(dim=1)
-
-            # Clean up
-            del inputs, hidden_states, delta_logits, labels, attention_mask, mask
-            del delta_mat
-            torch.cuda.empty_cache()
-
-            return total_logit_boost.cpu().float()
 
     def score_text_batch(self, batch_text):
         """
@@ -203,7 +154,10 @@ class MbMark:
         with torch.no_grad():
             inputs = self.tokenizer(batch_text, padding=True,
                                     return_tensors="pt").to(self.cluster_detector.device)
-            clusters = self.cluster_detector(inputs)
+            clusters, hidden_states = self.cluster_detector(inputs)
+            lrt_scores = self.lrt(hidden_states, inputs)
+            lrt_scores = (lrt_scores - self.llr_mean) / self.llr_std
+
             # Remove BOS token
             clusters = clusters[:, 1:]
             # Remove BOS + shift by 1
@@ -239,9 +193,9 @@ class MbMark:
 
         z = (counts - self.gamma * lengths) / \
             torch.sqrt(self.gamma * lengths * (1 - self.gamma))
-        p_values = torch.tensor(scipy.stats.binom.sf(
-            counts.numpy(), lengths.numpy(), self.gamma))
-        return z, p_values
+
+        z_combined = z + lrt_scores
+        return z_combined
 
 
 class GaussMark:
@@ -339,9 +293,8 @@ class GaussMark:
             norms = grads.norm(dim=1)                     # (B,)
             psi = dots / (self.sigma * norms)             # (B,)
             z_scores = psi
-            p_values = 1 - torch.distributions.Normal(0, 1).cdf(psi)
 
             self.model.zero_grad(set_to_none=True)
             torch.cuda.empty_cache()
 
-            return z_scores, p_values
+            return z_scores

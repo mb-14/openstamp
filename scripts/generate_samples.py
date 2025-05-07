@@ -33,6 +33,15 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
                         default="mb", choices=["mb", "gaussmark"])
+    parser.add_argument('--dataset_path', type=str,
+                        default="allenai/c4")
+    parser.add_argument('--dataset_config_name', type=str,
+                        default=None)
+    parser.add_argument('--dataset_split', type=str,
+                        default="validation")
+    parser.add_argument('--data_field', type=str,
+                        default="text")
+    parser.add_argument("--streaming", action="store_true", default=False)
 
     args = parser.parse_args()
 
@@ -42,8 +51,12 @@ def parse_args():
 args = parse_args()
 print(args)
 
-with open(args.output_file, "r") as f:
-    output_data = json.load(f)
+# Check if the output file already exists
+if os.path.exists(args.output_file):
+    with open(args.output_file, "r") as f:
+        output_data = json.load(f)
+else:
+    output_data = {}
 
 set_seed(args.seed)
 
@@ -60,19 +73,25 @@ model.eval()
 device = model.device
 
 
-realnewslike = load_dataset("allenai/c4", "realnewslike", split="validation")
+prompt_dataset = load_dataset(
+    args.dataset_path, args.dataset_config_name, split=args.dataset_split, trust_remote_code=True, streaming=args.streaming)
+
+if args.dataset_path == "kmfoda/booksum":
+     # Remove all columns except for the data_field
+    prompt_dataset = prompt_dataset.remove_columns([col for col in prompt_dataset.column_names if col != args.data_field])
+
 # Shuffle the dataset with a fixed seed
-realnewslike = realnewslike.shuffle(seed=args.seed)
+prompt_dataset = prompt_dataset.shuffle(seed=args.seed)
 min_length = args.prompt_length + args.max_tokens
 
 
 def filter_length(example):
-    return len(tokenizer(example["text"], truncation=True, max_length=min_length)["input_ids"]) >= min_length
+    return len(tokenizer(example[args.data_field], truncation=True, max_length=min_length)["input_ids"]) >= min_length
 
 
 def encode(examples):
     trunc_tokens = tokenizer(
-        examples["text"],
+        examples[args.data_field],
         truncation=True,
         padding=True,
         max_length=min_length,
@@ -94,10 +113,10 @@ def encode(examples):
     return examples
 
 
-realnewslike = realnewslike.filter(filter_length)
-realnewslike = realnewslike.map(encode, batched=True)
+prompt_dataset = prompt_dataset.filter(filter_length)
+prompt_dataset = prompt_dataset.map(encode, batched=True)
 
-dataloader = torch.utils.data.DataLoader(realnewslike, batch_size=32)
+dataloader = torch.utils.data.DataLoader(prompt_dataset, batch_size=32)
 
 prompts = []
 human_text = []
@@ -132,7 +151,7 @@ if args.watermark == "mb":
         unembedding_param_name="lm_head",
         tokenizer=tokenizer,
         mode="generate"
-        )
+    )
     watermarked_model = mb_mark.model
 elif args.watermark == "gaussmark":
     param = "model.layers.27.mlp.up_proj.weight"
@@ -207,9 +226,8 @@ sample_data = {
     "prompt_length": args.prompt_length,
     "max_tokens": args.max_tokens,
     "vocab_size": len(tokenizer),
-    "dataset_name": "realnewslike",
+    "dataset_name": "{}-{}".format(args.dataset_path, args.dataset_config_name),
 }
-
 
 
 output_data.update(sample_data)

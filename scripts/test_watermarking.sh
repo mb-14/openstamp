@@ -10,6 +10,7 @@ watermark="mb"
 generate=1
 align=0
 train=0
+dataset="realnewslike"
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -57,6 +58,10 @@ while [[ "$#" -gt 0 ]]; do
     train="$2"
     shift
     ;;
+  --dataset)
+    dataset="$2"
+    shift
+    ;;
   *)
     echo "Unknown parameter passed: $1"
     exit 1
@@ -75,23 +80,50 @@ mkdir -p "$log_dir"
 
 
 timestamp=$(date +"%Y%m%d_%H%M%S")
-
-output_file="${output_dir}/output_align=${align}_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}.json"
-
-if [ "$train" -eq 1 ]; then
- PRF_KEY=$SEED ALIGN=$align OUTPUT_FILE=$output_file K=$K papermill notebooks/mse_v1.ipynb "$log_dir/mse_$timestamp.ipynb"
+# if watermark is gaussmark, set the output file name accordingly
+if [ "$watermark" == "gaussmark" ]; then
+  output_file="${output_dir}/output_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
+else
+  output_file="${output_dir}/output_align=${align}_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
+  if [ "$train" -eq 1 ]; then
+    PRF_KEY=$SEED ALIGN=$align OUTPUT_FILE=$output_file K=$K papermill notebooks/mse_v1.ipynb "$log_dir/mse_$timestamp.ipynb"
+  fi
 fi
+
+if [ "$dataset" = "realnewslike" ]; then
+    dataset_args="--dataset_path allenai/c4 \
+    --dataset_config_name realnewslike \
+    --dataset_split validation \
+    --data_field text"
+elif [ "$dataset" = "wikipedia" ]; then
+    dataset_args="--dataset_path wikipedia \
+    --dataset_config_name 20220301.en \
+    --dataset_split train \
+    --data_field text \
+    --streaming"
+elif [ "$dataset" = "arxiv" ]; then
+    dataset_args="--dataset_path armanc/scientific_papers \
+    --dataset_config_name arxiv \
+    --dataset_split test \
+    --data_field article"
+elif [ "$dataset" = "booksum" ]; then
+    dataset_args="--dataset_path kmfoda/booksum \
+    --dataset_split test \
+    --data_field chapter"
+else
+    echo "Unsupported dataset ${dataset}."
+    exit 1
+fi
+
 
 if [ "$generate" -eq 1 ]; then
   python -m scripts.generate_samples --num_samples $NUM_SAMPLES \
   --output_file $output_file \
+  ${dataset_args} \
   --delta $DELTA \
   --gamma $GAMMA \
   --hash_key $SEED \
-  --watermark $watermark \
- 
-  OUTPUT_FILE=$output_file papermill notebooks/compute_base_statistics.ipynb "$log_dir/bs_$timestamp.ipynb"
-
+  --watermark $watermark
 fi
 
 # Generate paraphrases if PARAPHRASE is set to 1
@@ -104,6 +136,12 @@ if [ "$PARAPHRASE" -eq 1 ]; then
     --output_file $output_file \
     --lex 20 --order 0
 fi
+
+# Compute base statistics only if watermark is mb
+if [ "$watermark" == "mb" ]; then
+  OUTPUT_FILE=$output_file papermill notebooks/compute_base_statistics.ipynb "$log_dir/bs_$timestamp.ipynb"
+fi
+
 
 OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$timestamp.ipynb"
 

@@ -3,8 +3,8 @@
 set -e  # Optional: exit immediately if a command fails
 
 seeds=(15485863 12997009 22983996)
-align=(0 1)
-k=(2)
+align=(1)
+k=(4)
 gamma=(0.4)
 delta=(1.5)
 
@@ -15,7 +15,9 @@ for a in "${align[@]}"; do
       for d in "${delta[@]}"; do
         for seed in "${seeds[@]}"; do
           echo "Running test_watermarking with align=$a, k=$k_val, gamma=$g, delta=$d, seed=$seed"
-          ./scripts/test_watermarking.sh --gamma "$g" --delta "$d" --k "$k_val" --seed "$seed" --num_samples 500 --align "$a" --paraphrase 1 --train 1 --generate 1
+          ./scripts/test_watermarking.sh --gamma "$g" --delta "$d" --k "$k_val" \
+          --seed "$seed" --num_samples 500 --align "$a" --paraphrase 0 --train 1 --generate 1 \
+          --dataset booksum --watermark mb
         done
       done
     done
