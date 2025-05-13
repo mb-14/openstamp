@@ -1,0 +1,61 @@
+\begin{thebibliography}{9}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Block et~al.(2025)Block, Sekhari, and Rakhlin}]{block2025gaussmark}
+Adam Block, Ayush Sekhari, and Alexander Rakhlin. 2025.
+\newblock Gaussmark: A practical approach for structural watermarking of
+  language models.
+\newblock \emph{arXiv preprint arXiv:2501.13941}.
+
+\bibitem[{Christ et~al.(2024)Christ, Gunn, Malkin, and
+  Raykova}]{christ2024provably}
+Miranda Christ, Sam Gunn, Tal Malkin, and Mariana Raykova. 2024.
+\newblock Provably robust watermarks for open-source language models.
+\newblock \emph{arXiv preprint arXiv:2410.18861}.
+
+\bibitem[{Elhassan et~al.(2025)Elhassan, Ajroldi, Orvieto, and
+  Geiping}]{elhassan2025can}
+Fay Elhassan, Niccol{\`o} Ajroldi, Antonio Orvieto, and Jonas Geiping. 2025.
+\newblock Can you finetune your binoculars? embedding text watermarks into the
+  weights of large language models.
+\newblock \emph{arXiv preprint arXiv:2504.06446}.
+
+\bibitem[{Gloaguen et~al.(2025)Gloaguen, Jovanović, Staab, and
+  Vechev}]{gloaguen2025towards}
+Thibaud Gloaguen, Nikola Jovanović, Robin Staab, and Martin Vechev. 2025.
+\newblock Towards watermarking of open-source llms.
+\newblock \emph{arXiv preprint arXiv:2502.10525}.
+
+\bibitem[{Gu et~al.(2023)Gu, Li, Liang, and Hashimoto}]{gu2023learnability}
+Chenchen Gu, Xiang~Lisa Li, Percy Liang, and Tatsunori Hashimoto. 2023.
+\newblock On the learnability of watermarks for language models.
+\newblock \emph{arXiv preprint arXiv:2312.04469}.
+
+\bibitem[{Hu et~al.(2022)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, Chen
+  et~al.}]{hu2022lora}
+Edward~J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
+  Wang, Lu~Wang, Weizhu Chen, and 1 others. 2022.
+\newblock Lora: Low-rank adaptation of large language models.
+\newblock \emph{ICLR}, 1(2):3.
+
+\bibitem[{Kirchenbauer et~al.(2023)Kirchenbauer, Geiping, Wen, Katz, Miers, and
+  Goldstein}]{kirchenbauer2023watermark}
+John Kirchenbauer, Jonas Geiping, Yuxin Wen, Jonathan Katz, Ian Miers, and Tom
+  Goldstein. 2023.
+\newblock A watermark for large language models.
+\newblock In \emph{International Conference on Machine Learning}, pages
+  17061--17084. PMLR.
+
+\bibitem[{Liu and Bu(2024)}]{liu2024adaptive}
+Yepeng Liu and Yuheng Bu. 2024.
+\newblock Adaptive text watermark for large language models.
+\newblock \emph{arXiv preprint arXiv:2401.13927}.
+
+\bibitem[{Xu et~al.(2024)Xu, Yao, and
+  Liu}]{xu2024learningwatermarkllmgeneratedtext}
+Xiaojun Xu, Yuanshun Yao, and Yang Liu. 2024.
+\newblock \href {https://arxiv.org/abs/2403.10553} {Learning to watermark
+  llm-generated text via reinforcement learning}.
+\newblock \emph{Preprint}, arXiv:2403.10553.
+
+\end{thebibliography}
