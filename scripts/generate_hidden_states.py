@@ -89,9 +89,6 @@ def compute_hidden_states(model, tokenizer, all_input_ids, longest_prefixes, pre
     index_to_hidden = torch.zeros(
         all_input_ids.size(0), hidden_size, dtype=torch.bfloat16)
 
-    index_to_hidden_cumulative = torch.zeros(
-        all_input_ids.size(0), hidden_size, dtype=torch.bfloat16)
-
     # Precompute: mapping from source_prefix → list of (orig_idx, true_len)
     source_prefix_to_indices = defaultdict(list)
     for sub_prefix in prefix_to_source:
@@ -121,13 +118,11 @@ def compute_hidden_states(model, tokenizer, all_input_ids, longest_prefixes, pre
             prefix_tuple = tuple(prefix)
             for orig_idx, true_len in source_prefix_to_indices.get(prefix_tuple, []):
                 index_to_hidden[orig_idx] = logits[j, true_len - 1].cpu()
-                index_to_hidden_cumulative[orig_idx] = logits[j,
-                                                              :true_len].mean(dim=0).cpu()
 
         pbar.update(len(batch))
 
     pbar.close()
-    return index_to_hidden, index_to_hidden_cumulative
+    return index_to_hidden
 
 
 @torch.no_grad()
@@ -182,7 +177,7 @@ if __name__ == "__main__":
         prefix_to_indices, longest_prefixes)
 
     rprint(f"[bold cyan]Computing hidden states...[/bold cyan]")
-    hidden_states, hidden_states_cumulative_mean = compute_hidden_states(
+    hidden_states = compute_hidden_states(
         model=model,
         tokenizer=tokenizer,
         all_input_ids=all_input_ids,
@@ -202,7 +197,4 @@ if __name__ == "__main__":
         args.dataset_path, f"hidden_states.pt")
     torch.save(hidden_states, out_path)
 
-    out_path_cumulative = os.path.join(
-        args.dataset_path, f"hidden_states_cumulative_mean.pt")
-    torch.save(hidden_states_cumulative_mean, out_path_cumulative)
     rprint(f"[bold green]Saved hidden states to: {out_path}[/bold green]")

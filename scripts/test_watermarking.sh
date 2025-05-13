@@ -11,6 +11,7 @@ generate=1
 align=0
 train=0
 dataset="realnewslike"
+model="meta-llama/Llama-2-7b-hf"
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -62,6 +63,10 @@ while [[ "$#" -gt 0 ]]; do
     dataset="$2"
     shift
     ;;
+  --model)
+    model="$2"
+    shift
+    ;;
   *)
     echo "Unknown parameter passed: $1"
     exit 1
@@ -71,8 +76,10 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Check if output_dir is set, if not use default
+model_suffix="${model#*/}"
+
 if [ -z "$output_dir" ]; then
-  output_dir="output"
+  output_dir="output/${model_suffix}"
 fi
 
 log_dir="${output_dir}/logs"
@@ -83,11 +90,13 @@ timestamp=$(date +"%Y%m%d_%H%M%S")
 # if watermark is gaussmark, set the output file name accordingly
 if [ "$watermark" == "gaussmark" ]; then
   output_file="${output_dir}/output_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
-else
+elif [ "$watermark" == "mb" ]; then
   output_file="${output_dir}/output_align=${align}_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
   if [ "$train" -eq 1 ]; then
-    PRF_KEY=$SEED ALIGN=$align OUTPUT_FILE=$output_file K=$K papermill notebooks/mse_v1.ipynb "$log_dir/mse_$timestamp.ipynb"
+    MODEL=$model PRF_KEY=$SEED ALIGN=$align OUTPUT_FILE=$output_file K=$K papermill notebooks/mse_v1.ipynb "$log_dir/mse_$timestamp.ipynb"
   fi
+elif [ "$watermark" == "mb2" ]; then
+  output_file="${output_dir}/output_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
 fi
 
 if [ "$dataset" = "realnewslike" ]; then
@@ -123,7 +132,8 @@ if [ "$generate" -eq 1 ]; then
   --delta $DELTA \
   --gamma $GAMMA \
   --hash_key $SEED \
-  --watermark $watermark
+  --watermark $watermark \
+  --model_name $model 
 fi
 
 # Generate paraphrases if PARAPHRASE is set to 1
@@ -137,13 +147,13 @@ if [ "$PARAPHRASE" -eq 1 ]; then
     --lex 20 --order 0
 fi
 
-# Compute base statistics only if watermark is mb
-if [ "$watermark" == "mb" ]; then
-  OUTPUT_FILE=$output_file papermill notebooks/compute_base_statistics.ipynb "$log_dir/bs_$timestamp.ipynb"
-fi
+# # Compute base statistics only if watermark is mb
+# if [ "$watermark" == "mb" ]; then
+#   MODEL=$model OUTPUT_FILE=$output_file papermill notebooks/compute_base_statistics.ipynb "$log_dir/bs_$timestamp.ipynb"
+# fi
 
 
-OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$timestamp.ipynb"
+MODEL=$model OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$timestamp.ipynb"
 
 python scripts/evaluate_ppl.py \
   --batch_size 16 \
