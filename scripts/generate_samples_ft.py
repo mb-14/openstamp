@@ -10,7 +10,7 @@ from tqdm.notebook import tqdm
 from datasets import load_dataset
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed
-from torch.utils.data import TensorDataset, DataLoader
+from peft import PeftModel
 
 
 def parse_args():
@@ -43,6 +43,7 @@ def parse_args():
     parser.add_argument('--data_field', type=str,
                         default="text")
     parser.add_argument("--streaming", action="store_true", default=False)
+    parser.add_argument('--step', type=int, default=500)
 
     args = parser.parse_args()
 
@@ -141,35 +142,26 @@ human_text = human_text[:args.num_samples]
 prompt_text = prompt_text[:args.num_samples]
 full_human_text = full_human_text[:args.num_samples]
 
+model_suffix = args.model_name.split("/")[-1]
+
 if args.watermark == "mb":
-    # Load final weights into a torch tensor
-    final_weight = torch.tensor(output_data["final_matrix"])
-    mb_mark = MbMark.mb(
-        delta=args.delta,
-        gamma=args.gamma,
-        seed=args.hash_key,
-        final_weight=final_weight,
-        model=model,
-        unembedding_param_name="lm_head",
-        tokenizer=tokenizer,
-        mode=Mode.Generate,
-    )
-    watermarked_model = mb_mark.model
+    lora_ckpt_path = f"output/{model_suffix}/lora/checkpoint-watermark=mb_delta=1.2_gamma=0.3_k=4_seed=12997009-step-{args.step}"
 elif args.watermark == "mb2":
-    mb_mark = MbMark.mb2(
-        seed=args.hash_key,
-        model=model,
-        unembedding_param_name="lm_head",
-        tokenizer=tokenizer,
-        mode=Mode.Generate
-    )
-    watermarked_model = mb_mark.model
-elif args.watermark == "gaussmark":
-    param = "model.layers.27.mlp.up_proj.weight"
-    sigma = 0.04
-    gaussmark = GaussMark(sigma=sigma, seed=args.hash_key,
-                          target_param_name=param, tokenizer=tokenizer, model=model)
-    watermarked_model = gaussmark.model
+    lora_ckpt_path = f"output/{model_suffix}/lora/checkpoint-watermark=mb2_seed=12997009-step-{args.step}"
+
+original_unembedding = model.lm_head.weight.data.clone()
+peft_model = PeftModel.from_pretrained(model, lora_ckpt_path)
+peft_model.merge_and_unload()
+updated_unembedding = peft_model.lm_head.weight.data.clone()
+with torch.no_grad():
+    model.lm_head.weight.data.copy_(original_unembedding)
+
+
+mb_mark = MbMark.from_augmented(
+        updated_unembedding, model, tokenizer, unembedding_param_name="lm_head", mode=Mode.Generate)
+
+watermarked_model = mb_mark.model
+
 
 model_text = []
 full_model_text = []
@@ -209,25 +201,19 @@ data = {
     "model_text": model_text,
     "full_model_text": full_model_text
 }
-if args.watermark == "mb":
-    config = {
-        "gamma": args.gamma,
-        "delta": args.delta,
-        "hash_key": args.hash_key,
-        "n_clusters": final_weight.size(0),
-        "unembedding_param_name": "lm_head",
-    }
-elif args.watermark == "gaussmark":
-    config = {
-        "sigma": sigma,
-        "hash_key": args.hash_key,
-        "target_param_name": "model.layers.27.mlp.up_proj.weight",
-    }
-elif args.watermark == "mb2":
-    config = {
-        "hash_key": args.hash_key,
-        "unembedding_param_name": "lm_head",
-    }
+
+
+if args.watermark_type == "mb":
+    orig_output_file = f"output/{model_suffix}/output_align=0_delta=1.2_gamma=0.3_k=4_seed=12997009_watermark=mb_dataset=realnewslike.json"
+else:
+    orig_output_file = f"output/{model_suffix}/output_seed=12997009_watermark=mb2_dataset=realnewslike.json"
+
+
+with open(orig_output_file, "r") as f:
+    orig_data = json.load(f)
+    config = orig_data["config"]
+
+
 
 sample_data = {
     "samples": data,
@@ -244,6 +230,9 @@ sample_data = {
     "vocab_size": len(tokenizer),
     "dataset_name": "{}-{}".format(args.dataset_path, args.dataset_config_name),
 }
+
+if args.watermark == "mb":
+    sample_data["final_matrix"] = orig_data["final_matrix"]
 
 
 output_data.update(sample_data)

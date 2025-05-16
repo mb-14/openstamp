@@ -1,4 +1,4 @@
-\begin{thebibliography}{11}
+\begin{thebibliography}{14}
 \providecommand{\natexlab}[1]{#1}
 
 \bibitem[{Aaronson(2023)}]{aaronson2023reform}
@@ -47,6 +47,17 @@ Chenchen Gu, Xiang~Lisa Li, Percy Liang, and Tatsunori Hashimoto. 2023.
 \newblock On the learnability of watermarks for language models.
 \newblock \emph{arXiv preprint arXiv:2312.04469}.
 
+\bibitem[{Jiang et~al.(2023)Jiang, Sablayrolles, Mensch, Bamford, Chaplot,
+  de~las Casas, Bressand, Lengyel, Lample, Saulnier, Lavaud, Lachaux, Stock,
+  Scao, Lavril, Wang, Lacroix, and Sayed}]{jiang2023mistral7b}
+Albert~Q. Jiang, Alexandre Sablayrolles, Arthur Mensch, Chris Bamford,
+  Devendra~Singh Chaplot, Diego de~las Casas, Florian Bressand, Gianna Lengyel,
+  Guillaume Lample, Lucile Saulnier, Lélio~Renard Lavaud, Marie-Anne Lachaux,
+  Pierre Stock, Teven~Le Scao, Thibaut Lavril, Thomas Wang, Timothée Lacroix,
+  and William~El Sayed. 2023.
+\newblock \href {https://arxiv.org/abs/2310.06825} {Mistral 7b}.
+\newblock \emph{Preprint}, arXiv:2310.06825.
+
 \bibitem[{Kirchenbauer et~al.(2023)Kirchenbauer, Geiping, Wen, Katz, Miers, and
   Goldstein}]{kirchenbauer2023watermark}
 John Kirchenbauer, Jonas Geiping, Yuxin Wen, Jonathan Katz, Ian Miers, and Tom
@@ -65,6 +76,25 @@ Rohith Kuditipudi, John Thickstun, Tatsunori Hashimoto, and Percy Liang. 2023.
 Yepeng Liu and Yuheng Bu. 2024.
 \newblock Adaptive text watermark for large language models.
 \newblock \emph{arXiv preprint arXiv:2401.13927}.
+
+\bibitem[{Qwen et~al.(2025)Qwen, :, Yang, Yang, Zhang, Hui, Zheng, Yu, Li, Liu,
+  Huang, Wei, Lin, Yang, Tu, Zhang, Yang, Yang, Zhou, Lin, Dang, Lu, Bao, Yang,
+  Yu, Li, Xue, Zhang, Zhu, Men, Lin, Li, Tang, Xia, Ren, Ren, Fan, Su, Zhang,
+  Wan, Liu, Cui, Zhang, and Qiu}]{qwen2025qwen25technicalreport}
+Qwen, :, An~Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo~Zheng, Bowen Yu,
+  Chengyuan Li, Dayiheng Liu, Fei Huang, Haoran Wei, Huan Lin, Jian Yang,
+  Jianhong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jingren Zhou, and 25
+  others. 2025.
+\newblock \href {https://arxiv.org/abs/2412.15115} {Qwen2.5 technical report}.
+\newblock \emph{Preprint}, arXiv:2412.15115.
+
+\bibitem[{Touvron et~al.(2023)Touvron, Martin, Stone, Albert, Almahairi,
+  Babaei, Bashlykov, Batra, Bhargava, Bhosale et~al.}]{touvron2023llama}
+Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine
+  Babaei, Nikolay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale,
+  and 1 others. 2023.
+\newblock Llama 2: Open foundation and fine-tuned chat models.
+\newblock \emph{arXiv preprint arXiv:2307.09288}.
 
 \bibitem[{Xu et~al.(2024)Xu, Yao, and
   Liu}]{xu2024learningwatermarkllmgeneratedtext}

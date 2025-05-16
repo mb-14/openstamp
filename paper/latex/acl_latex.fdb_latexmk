@@ -1,12 +1,12 @@
 # Fdb version 3
-["bibtex acl_latex"] 1747385036 "acl_latex.aux" "acl_latex.bbl" "acl_latex" 1747385080
+["bibtex acl_latex"] 1747393471 "acl_latex.aux" "acl_latex.bbl" "acl_latex" 1747393611
   "./acl_natbib.bst" 1746638124 45186 3d1af46d62cc9172ef6e42b56c1cd613 ""
-  "acl_latex.aux" 1747385080 11208 4c5e6598aa0bf22e631751adb8b96521 "pdflatex"
-  "custom.bib" 1747361821 3990 3fa7603ab12b60d259133a29c440ac12 ""
+  "acl_latex.aux" 1747393610 12275 17573fc0f706cf427b2d9f67124cd246 "pdflatex"
+  "custom.bib" 1747393037 5828 f7d723c03b19d7a61c12b1b9030728a1 ""
   (generated)
   "acl_latex.bbl"
   "acl_latex.blg"
-["pdflatex"] 1747385079 "/data/users/miroojin/saksham/watermark-adapters/paper/latex/acl_latex.tex" "acl_latex.pdf" "acl_latex" 1747385080
+["pdflatex"] 1747393609 "/data/users/miroojin/saksham/watermark-adapters/paper/latex/acl_latex.tex" "acl_latex.pdf" "acl_latex" 1747393611
   "/data/users/miroojin/saksham/watermark-adapters/paper/latex/acl_latex.tex" 1747383471 4546 e4701e41def39ac918b082e8ba38860f ""
   "/etc/texmf/web2c/texmf.cnf" 1735651527 475 c0e671620eb5563b2130f56340a5fde8 ""
   "/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
@@ -156,17 +156,17 @@
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1735682602 4379155 98693266ff65f58d9f98aff394de12d2 ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1735682628 2800991 df0c607ac69c8f0465de8499db2e8991 ""
   "acl.sty" 1746638124 11597 da9a94cfb2d73b4ccce758d297ef675a ""
-  "acl_latex.aux" 1747385080 11208 4c5e6598aa0bf22e631751adb8b96521 "pdflatex"
-  "acl_latex.bbl" 1747385037 3394 94ca6799ea4ba2e1c19a627661a7e6f3 "bibtex acl_latex"
-  "acl_latex.out" 1747385080 3001 e98a8c087abd47c3f05fd8a876567327 "pdflatex"
+  "acl_latex.aux" 1747393610 12275 17573fc0f706cf427b2d9f67124cd246 "pdflatex"
+  "acl_latex.bbl" 1747393471 5174 fb50ab326ec7f9d97e3b3d55ebc97202 "bibtex acl_latex"
+  "acl_latex.out" 1747393610 3001 e98a8c087abd47c3f05fd8a876567327 "pdflatex"
   "acl_latex.tex" 1747383471 4546 e4701e41def39ac918b082e8ba38860f ""
   "sections/abstract.tex" 1747361397 1416 a2cac0970be17b734a8eaf32e743a989 ""
-  "sections/background.tex" 1747376026 5475 8886257622d3ffa27582fb31dfa495a9 ""
+  "sections/background.tex" 1747385951 5537 0b19b43be64ad9e97aad0b188a64528f ""
   "sections/conclusion.tex" 1747280050 43 06c56dd356068170bb7962e6bc2ce560 ""
   "sections/experiments.tex" 1747315030 1261 352e13135cb46953387ce0be517a81f2 ""
   "sections/finetuning.tex" 1747374171 74 e0dc611ea8b39c26c67c2837a42bbe05 ""
-  "sections/introduction.tex" 1747385078 4164 383042d19f68a3811e82c162e35332a4 ""
-  "sections/methodology.tex" 1747383285 9142 cb8c46c50923643daf75736391122d2f ""
+  "sections/introduction.tex" 1747393106 4217 693cf4d5f7bd807697c880f9543b2827 ""
+  "sections/methodology.tex" 1747393609 9182 7c559097c18ebc90b624245a85f0733b ""
   "sections/paraphrasing.tex" 1747280035 65 dc80a14c5af23ae76a4d128c70438eaf ""
   (generated)
   "acl_latex.aux"
