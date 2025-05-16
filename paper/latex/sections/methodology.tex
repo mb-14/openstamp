@@ -30,49 +30,75 @@ effectively applying a hidden-state-dependent logit bias during generation.
 This general formulation enables a broad class of watermarking strategies. The structure of \( \Delta W \) governs the nature of the watermark: its strength, variability, and detectability. To be effective, \( \Delta W \) should satisfy:
 \begin{itemize}
     \item \textbf{Detectability:} The watermark should induce statistically identifiable changes in output probabilities.
-    \item \textbf{Stealth:} Perturbations should preserve fluency and perplexity, requiring norm control over \( \Delta W \).
-    \item \textbf{Diversity:} The watermark should vary across contexts to resist overfitting or reverse engineering.
+    \item \textbf{Stealth:} Perturbations should preserve fluency and perplexity of generated text, requiring logit biases to be in a reasonable range.
+    \item \textbf{Diversity:} The watermark should vary across contexts and timesteps, making it harder to reverse-engineer.
 \end{itemize}
-
 We describe two instantiations of \( \Delta W \) that satisfy these criteria.
 
-\subsubsection*{Green List Biasing via Token-to-Class Mapping}
+\subsubsection{Green List Biasing}
 
-This instantiation is inspired by the Kirchenbauer-style watermarking method \citep{kirchenbauer2023watermark}, which boosts the logits of tokens belonging to a pseudorandomly selected \emph{green list}. The green list is generated at each timestep using a pseudorandom function (PRF) that depends on a secret seed and the previous \( n \) tokens in the prefix. This strategy ensures that the token biases vary in a structured, deterministic, and context-sensitive way.
+This method draws inspiration from the watermarking approach of \citet{kirchenbauer2023watermark}, which boosts the logits of tokens belonging to a pseudorandomly selected \emph{green list}. At each timestep, the green list is generated using a pseudorandom function (PRF) that depends on a secret seed and the preceding \( n \) tokens in the prefix. This ensures that the token biases vary in a deterministic, structured, and context-sensitive manner.
 
-To encode this behavior directly into model weights, we decompose the perturbation matrix \( \Delta W \) into a low-rank form:
+To encode this behavior directly into the model weights, we express the perturbation matrix \( \Delta W \) as the product of two matrices:
 \begin{equation}
     \Delta W = G H,
 \end{equation}
 where:
+
 \begin{itemize}
-    \item \( G \in \mathbb{R}^{|V| \times C} \) maps each vocabulary token to one of \( C \) pseudo-classes (or “token types”), learned via a soft assignment (e.g., ridge regression on clustered hidden states).
-    \item \( H \in \mathbb{R}^{C \times d} \) contains one watermarking vector per class. Each row in \( H \) is constructed using a pseudorandomly generated green/red partition over the vocabulary, with the green tokens boosted by a fixed value \( \delta \).
+    \item \( G \in \mathbb{R}^{|\mathcal{V}| \times C} \) contains \( C \) watermarking lists represented as row vectors. For each pseudo-class \( c \in \{1, \dots, C\} \), the corresponding row \( H_c \in \mathbb{R}^{|\mathcal{V}|} \) is defined as:
+    \[
+    (H_c)_i = 
+    \begin{cases}
+    \delta & \text{if } i \in \mathcal{G}_c \\
+    0 & \text{otherwise}
+    \end{cases}
+    \]
+    where \( \delta > 0 \) is a fixed scalar that determines the strength of the watermark signal, and \( \mathcal{G}_c \subseteq \{1, \dots, |\mathcal{V}|\} \) is the green list for class \( c \), constructed using a pseudorandom function:
+    \[
+    \mathcal{G}_c = \left\{ i \in \{1, \dots, |\mathcal{V}|\} \;\middle|\; \mathrm{PRF}(\text{seed}, c, i) < \gamma \right\}.
+    \]
+    Here, \(\mathrm{PRF}(\cdot)\) is a keyed hash function seeded with a secret key, and \(\gamma \in (0,1)\) is a fixed threshold that determines the fraction of green-listed indices.
+
+    \item \( H \in \mathbb{R}^{C \times d} \) maps each token's hidden state to a soft pseudo-class one-hot selector. To construct \( H \), we proceed as follows:
+    \begin{enumerate}
+        \item Run the base model on a large unlabeled corpus (e.g., OpenWebText) and collect hidden states from the last layer before the unembedding layer.
+            \item Apply \( k \)-means clustering to these hidden states, assigning each to one of \( C \) pseudo-classes.
+            \item Solve a ridge regression problem to map each hidden state \( h \in \mathbb{R}^d \) to a soft one-hot selector \( s \in \mathbb{R}^C \), approximating the discrete cluster assignments.
+    \end{enumerate}
 \end{itemize}
 
-This construction ensures that tokens belonging to the same semantic class receive similar perturbations, and that the green list logic is embedded statically in the weights. Different rows of \( H \) correspond to different green list patterns, and the secret PRF seed ensures these lists cannot be easily recovered from the model.
+This construction ensures that hidden states in similar regions of representation space receive similar perturbations. Although the selectors in \( G \) are soft, they closely approximate discrete assignments and enable reliable watermark detection. The structured factorization of \( \Delta W \) into \( G \) and \( H \) allows multiple green list rules to be encoded in a single matrix perturbation.
 
-Although the selectors in \( G \) are soft, they approximate discrete assignments well enough for reliable watermark detection. Moreover, mapping hidden states to pseudo-classes and associating each with its own watermarking vector allows us to encode multiple green list rules into a single matrix perturbation.
+\subsubsection{Gaussian Random Projection}
 
-\subsubsection*{Gaussian Random Projection Watermarking}
-
-In this unstructured variant, \( \Delta W \) is a full-rank matrix sampled from a standard normal distribution:
+In this variant, the watermark is embedded by applying a fixed Gaussian perturbation to the unembedding matrix. Specifically, the perturbation matrix \( \Delta W \in \mathbb{R}^{|\mathcal{V}| \times d} \) is initialized as:
 \begin{equation}
     \Delta W_{ij} \sim \mathcal{N}(0, 1).
 \end{equation}
 
-This method avoids explicit vocabulary partitions. Instead, it generates a dynamic logit bias that varies across both tokens and timesteps due to the randomness of projections. Even if the hidden state vectors \( h_t \) are not normally distributed, the Central Limit Theorem ensures that each projection \( (\Delta W h_t)_i \) behaves approximately Gaussian:
+During generation, this produces a dynamic, input-dependent logit bias:
+\[
+\Delta \ell_t = \Delta W h_t \in \mathbb{R}^{|\mathcal{V}|},
+\]
+which is added to the model’s original logits.
+
+Unlike the green list biasing approach, which relies on discrete vocabulary partitions, this method introduces a continuous watermarking signal by projecting the hidden state through a random Gaussian matrix. Although the hidden state \( h_t \in \mathbb{R}^d \) is not necessarily Gaussian, the Central Limit Theorem ensures that the projected logits \( [\Delta \ell_t]_i = \langle \Delta W_i, h_t \rangle \) are approximately Gaussian-distributed when \( d \) is large:
 
 \begin{theorem}[CLT for Logit Bias Projection]
-Let \( h_t \in \mathbb{R}^d \) be a fixed vector and let each row \( \Delta W_i \in \mathbb{R}^d \) be drawn independently from \( \mathcal{N}(0, I_d) \). Then the scalar projection
-\[
-[\Delta W h_t]_i = \langle \Delta W_i, h_t \rangle = \sum_{j=1}^d \Delta W_{ij} \cdot h_{tj}
-\]
-converges in distribution to \( \mathcal{N}(0, \|h_t\|^2) \) as \( d \to \infty \).
+    Let \( h_t \in \mathbb{R}^d \) be fixed, and let each row \( \Delta W_i \in \mathbb{R}^d \) be drawn independently from \( \mathcal{N}(0, I_d) \). Then the scalar projection
+    \[
+        [\Delta W h_t]_i = \langle \Delta W_i, h_t \rangle = \sum_{j=1}^d \Delta W_{ij} \cdot h_{tj}
+    \]
+    converges in distribution to \( \mathcal{N}(0, \|h_t\|^2) \) as \( d \to \infty \).
 \end{theorem}
 
-To ensure consistent perturbation magnitudes across timesteps and models, we optionally normalize the projection by dividing by the expected norm of \( h_t \).
+Consequently, the logit bias vector \( \Delta \ell_t \) is approximately distributed as \( \mathcal{N}(0, \|h_t\|^2 I) \), meaning that, at each timestep, about half of the tokens are boosted while the other half are suppressed. This introduces a subtle but statistically detectable watermark signal without degrading generation quality.
 
+To ensure consistent perturbation magnitude across timesteps and model scales, we normalize the matrix using the expected norm of a hidden state vector and introduce a scaling hyperparameter \( \delta > 0 \) to control watermark strength:
+\begin{equation}
+    \Delta W \leftarrow \frac{\delta}{\mathbb{E}[\|h_t\|]} \cdot \Delta W.
+\end{equation}
 
 \subsection{Detection via Likelihood Ratio Test}
 

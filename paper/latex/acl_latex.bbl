@@ -1,4 +1,4 @@
-\begin{thebibliography}{12}
+\begin{thebibliography}{11}
 \providecommand{\natexlab}[1]{#1}
 
 \bibitem[{Aaronson(2023)}]{aaronson2023reform}
@@ -46,13 +46,6 @@ Thibaud Gloaguen, Nikola Jovanović, Robin Staab, and Martin Vechev. 2025.
 Chenchen Gu, Xiang~Lisa Li, Percy Liang, and Tatsunori Hashimoto. 2023.
 \newblock On the learnability of watermarks for language models.
 \newblock \emph{arXiv preprint arXiv:2312.04469}.
-
-\bibitem[{Hu et~al.(2022)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, Chen
-  et~al.}]{hu2022lora}
-Edward~J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean
-  Wang, Lu~Wang, Weizhu Chen, and 1 others. 2022.
-\newblock Lora: Low-rank adaptation of large language models.
-\newblock \emph{ICLR}, 1(2):3.
 
 \bibitem[{Kirchenbauer et~al.(2023)Kirchenbauer, Geiping, Wen, Katz, Miers, and
   Goldstein}]{kirchenbauer2023watermark}
