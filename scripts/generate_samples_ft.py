@@ -24,14 +24,9 @@ def parse_args():
     parser.add_argument('--top_p', type=float, default=1.0)
     parser.add_argument('--multinomial', action='store_true', default=True)
     parser.add_argument('--num_samples', type=int, default=5000)
-    parser.add_argument('--gamma', type=float, default=0.25)
-    parser.add_argument('--delta', type=float, default=1.0)
-    parser.add_argument('--hash_key', type=int, default=15485863,
-                        help="PRF for the watermarking matrix")
     parser.add_argument('--output_file', type=str, required=True)
     parser.add_argument('--model_name', type=str,
                         default="meta-llama/Llama-2-7b-hf")
-    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
                         default="mb", choices=["mb", "gaussmark", "mb2"])
     parser.add_argument('--dataset_path', type=str,
@@ -203,7 +198,7 @@ data = {
 }
 
 
-if args.watermark_type == "mb":
+if args.watermark == "mb":
     orig_output_file = f"output/{model_suffix}/output_align=0_delta=1.2_gamma=0.3_k=4_seed=12997009_watermark=mb_dataset=realnewslike.json"
 else:
     orig_output_file = f"output/{model_suffix}/output_seed=12997009_watermark=mb2_dataset=realnewslike.json"

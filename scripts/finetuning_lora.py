@@ -14,12 +14,9 @@ from src.mbmark import MbMark, Mode
 import json
 import timeit
 import argparse
-from accelerate import FullyShardedDataParallelPlugin, Accelerator
 
 
 torch.manual_seed(42)
-# Configuration
-accelerator = Accelerator()  # or "fp16" if needed
 
 
 # Get model name from command line argument
@@ -64,11 +61,8 @@ if tokenizer.pad_token is None:
 base_model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype=torch.bfloat16,
-    device_map={"": accelerator.process_index},  # Load on one device temporarily
+    device_map="auto",  # Load on one device temporarily
 )
-
-
-
 
 
 with open(output_file, "r") as f:
@@ -132,12 +126,11 @@ dataloader = DataLoader(tokenized_dataset, batch_size=batch_size,
                         collate_fn=data_collator, shuffle=True, num_workers=2)
 
 
-
 if args.targeted:
     target_modules = ["lm_head"]
 else:
     target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
-                    "gate_proj", "up_proj", "down_proj", "lm_head"]
+                      "gate_proj", "up_proj", "down_proj", "lm_head"]
 
 # Apply LoRA to the unembedding layer
 lora_config = LoraConfig(
@@ -164,10 +157,6 @@ lr_scheduler = get_cosine_schedule_with_warmup(
     num_training_steps=max_steps,
 )
 
-model, optimizer, dataloader, lr_scheduler = accelerator.prepare(
-    model, optimizer, dataloader, lr_scheduler
-)
-
 # Training loop
 model.train()
 step = 0
@@ -177,19 +166,17 @@ progress_bar = tqdm(total=max_steps)
 for batch in dataloader:
     outputs = model(**batch)
     loss = outputs.loss
-    accelerator.backward(loss)
+    loss.backward()
     optimizer.step()
     lr_scheduler.step()
     optimizer.zero_grad()
 
-    if accelerator.is_main_process:
-        if step % logging_steps == 0:
-            print(f"Step {step}: Loss {loss.item():.4f}")
+    if step % logging_steps == 0:
+        print(f"Step {step}: Loss {loss.item():.4f}")
 
     if step % save_steps == 0 and step > 0:
-        if accelerator.is_main_process:
-            model.save_pretrained(os.path.join(
-                output_dir, f"checkpoint-{checkpoint_suffix}-step-{step}"))
+        model.save_pretrained(os.path.join(
+            output_dir, f"checkpoint-{checkpoint_suffix}-step-{step}"))
 
     step += 1
     progress_bar.update(1)
@@ -199,6 +186,5 @@ for batch in dataloader:
 progress_bar.close()
 
 # Save the final model
-if accelerator.is_main_process:
-    model.save_pretrained(os.path.join(
-        output_dir, f"checkpoint-{checkpoint_suffix}-step-{step}"))
+model.save_pretrained(os.path.join(
+    output_dir, f"checkpoint-{checkpoint_suffix}-step-{step}"))
