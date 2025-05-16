@@ -3,13 +3,13 @@
 
 \subsection{Watermarking in Language Models}
 
-Watermarking techniques aim to embed imperceptible signals into model-generated text to enable provenance detection and mitigate misuse. Most existing approaches operate at decoding time, modifying next-token probabilities based on pseudorandom functions over the vocabulary. A common strategy is to define a favored subset of tokens—the green list—by hashing the previous \(k\) tokens, and then bias generation toward these tokens using additive logit shifts or sampling-based constraints. For example, \citet{kirchenbauer2023watermark} apply soft logit biasing toward green-listed tokens, while \citet{aaronson2023reform} and \citet{kuditipudi2023robust} employ cryptographically driven scores to guide token sampling. Detection is typically performed through statistical tests that evaluate whether the distribution of generated tokens aligns with the expected green list patterns.
+Watermarking techniques aim to embed subtle signals into model-generated text that are imperceptible to humans but detectable through statistical analysis. Most existing approaches operate at decoding time, modifying next-token probabilities based on pseudorandom functions that assign scores or preferences to tokens in the vocabulary. A common strategy is to define a favored subset of tokens—the green list—by hashing the previous \(k\) tokens, and then bias generation toward these tokens using additive logit shifts or sampling-based constraints. For example, \citet{kirchenbauer2023watermark} apply soft logit biasing toward green-listed tokens, while \citet{aaronson2023reform} and \citet{kuditipudi2023robust} employ cryptographically driven scores to guide token sampling. Detection is typically performed through statistical tests that evaluate whether the distribution of generated tokens aligns with the expected green list patterns.
 
 These methods typically involve a trade-off between two competing objectives: text generation quality and detection strength. Strong watermarking configurations—such as those using aggressive logit biasing or restrictive sampling—are easier to detect but tend to degrade text quality. In contrast, low-distortion watermarking setups preserve output quality but often result in signals that are harder to detect reliably.
 
 \subsection{Open-Source Model Challenges}
 
-While effective for API-served models, decoding-based watermarking fails in open-weight settings, where users can modify or bypass the decoding logic entirely. This motivates embedding the watermark directly into model weights. Model-level watermarking techniques fall into two categories:
+While effective for API-served models, decoding-based watermarking fails in open-weight settings, where users can modify or bypass the decoding logic entirely. This motivates embedding the watermark directly into model weights. Weight-based watermarking techniques fall into two categories:
 
 \subsubsection{Tuning-based methods}
 
