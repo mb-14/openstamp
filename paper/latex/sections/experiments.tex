@@ -1,0 +1,18 @@
+\section{Experiments and Results}
+\label{sec:experiments}
+
+% - We evaluate our methods to assess the following:
+%   - Detection accuracy for a given level of distortion
+%       - We generate 500 samples watermarked text of length 200 tokens as continuations 50 token prompts from c4/realnewslike
+%       - We compute AUCROC/Best F1 Score and TPR@0.1%FPR for each method
+%       - We measure distortion using PPL computed by Llama2-13b as the oracle
+%       - We compare with gaussmark (sigma=0.04, weights = model.layers.27.mlp.up_proj.weigh) and kgw logit distilled (delta=2.0, k=1, gamma=0.25) 
+%       - We also compare with decoding based KGW as the upper bound baseline
+%   - Downstream task performance
+%       - We measure if there is any drop in performance on downstream tasks: hellaswag, gsm8k, and arc_challenge
+%   - Robustness to paraphrasing
+%       - We paraphrase our watermarked text using DIPPER with lexical diversity of 20 and 60
+%       - We compute AUCROC/Best F1 Score and TPR@1%FPR for each method
+%       - We compare with gaussmark (sigma=0.04, weights = model.layers.27.mlp.up_proj.weigh) and kgw logit distilled (delta=2.0, k=1, gamma=0.25)
+%       - We also compare with decoding based KGW with k=0 as the upper bound baseline
+%   

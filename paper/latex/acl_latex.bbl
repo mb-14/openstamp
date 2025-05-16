@@ -1,5 +1,21 @@
-\begin{thebibliography}{9}
+\begin{thebibliography}{12}
 \providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Aaronson(2023)}]{aaronson2023reform}
+Scott Aaronson. 2023.
+\newblock {20 - 'Reform' AI Alignment with Scott Aaronson}.
+\newblock
+  \url{https://axrp.net/episode/2023/04/11/episode-20-reform-ai-alignment-scott-aaronson.html}.
+\newblock AXRP - The AI X-risk Research Podcast.
+
+\bibitem[{Ajith et~al.(2024)Ajith, Singh, and
+  Pruthi}]{ajith-etal-2024-downstream}
+Anirudh Ajith, Sameer Singh, and Danish Pruthi. 2024.
+\newblock \href {https://doi.org/10.18653/v1/2024.findings-emnlp.821}
+  {Downstream trade-offs of a family of text watermarks}.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  EMNLP 2024}, pages 14039--14053, Miami, Florida, USA. Association for
+  Computational Linguistics.
 
 \bibitem[{Block et~al.(2025)Block, Sekhari, and Rakhlin}]{block2025gaussmark}
 Adam Block, Ayush Sekhari, and Alexander Rakhlin. 2025.
@@ -45,6 +61,12 @@ John Kirchenbauer, Jonas Geiping, Yuxin Wen, Jonathan Katz, Ian Miers, and Tom
 \newblock A watermark for large language models.
 \newblock In \emph{International Conference on Machine Learning}, pages
   17061--17084. PMLR.
+
+\bibitem[{Kuditipudi et~al.(2023)Kuditipudi, Thickstun, Hashimoto, and
+  Liang}]{kuditipudi2023robust}
+Rohith Kuditipudi, John Thickstun, Tatsunori Hashimoto, and Percy Liang. 2023.
+\newblock Robust distortion-free watermarks for language models.
+\newblock \emph{arXiv preprint arXiv:2307.15593}.
 
 \bibitem[{Liu and Bu(2024)}]{liu2024adaptive}
 Yepeng Liu and Yuheng Bu. 2024.

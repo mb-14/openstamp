@@ -61,11 +61,11 @@
 \@LN{31}{0}
 \@LN{32}{0}
 \@LN{33}{0}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \@LN{34}{0}
 \@LN{35}{0}
 \@LN{36}{0}
 \@LN{37}{0}
-\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \@LN{38}{0}
 \@LN{39}{0}
 \@LN{40}{0}
@@ -113,8 +113,11 @@
 \@LN{81}{0}
 \@LN{82}{0}
 \@LN{83}{0}
-\citation{gloaguen2025towards}
 \citation{kirchenbauer2023watermark}
+\citation{aaronson2023reform}
+\citation{kuditipudi2023robust}
+\citation{gu2023learnability}
+\citation{xu2024learningwatermarkllmgeneratedtext}
 \@LN@col{1}
 \@LN{84}{1}
 \@LN{85}{1}
@@ -152,10 +155,7 @@
 \@LN{117}{1}
 \@LN{118}{1}
 \@LN{119}{1}
-\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
-\newlabel{sec:related}{{2}{2}{Related Work}{section.2}{}}
 \@LN{120}{1}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology}{2}{section.3}\protected@file@percent }
 \@LN{121}{1}
 \@LN{122}{1}
 \@LN{123}{1}
@@ -163,13 +163,15 @@
 \@LN{125}{1}
 \@LN{126}{1}
 \@LN{127}{1}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Preliminaries}{2}{subsection.3.1}\protected@file@percent }
 \@LN{128}{1}
 \@LN{129}{1}
-\@LN@col{2}
 \@LN{130}{1}
+\@LN@col{2}
 \@LN{131}{1}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Background and Related Work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:background_related}{{2}{2}{Background and Related Work}{section.2}{}}
 \@LN{132}{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Watermarking in Language Models}{2}{subsection.2.1}\protected@file@percent }
 \@LN{133}{1}
 \@LN{134}{1}
 \@LN{135}{1}
@@ -179,7 +181,6 @@
 \@LN{139}{1}
 \@LN{140}{1}
 \@LN{141}{1}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Watermarking via Unembedding Perturbation}{2}{subsection.3.2}\protected@file@percent }
 \@LN{142}{1}
 \@LN{143}{1}
 \@LN{144}{1}
@@ -199,6 +200,7 @@
 \@LN{158}{1}
 \@LN{159}{1}
 \@LN{160}{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Open-Source Model Challenges}{2}{subsection.2.2}\protected@file@percent }
 \@LN{161}{1}
 \@LN{162}{1}
 \@LN{163}{1}
@@ -211,14 +213,19 @@
 \@LN{170}{1}
 \@LN{171}{1}
 \@LN{172}{1}
+\@LN{173}{1}
+\@LN{174}{1}
+\@LN{175}{1}
+\@LN{176}{1}
+\@LN{177}{1}
+\@LN{178}{1}
+\@LN{179}{1}
+\citation{elhassan2024binoculars}
+\citation{christ2024provably}
+\citation{block2025gaussmark}
+\citation{gloaguen2025towards}
+\citation{ajith-etal-2024-downstream}
 \@LN@col{1}
-\@LN{173}{2}
-\@LN{174}{2}
-\@LN{175}{2}
-\@LN{176}{2}
-\@LN{177}{2}
-\@LN{178}{2}
-\@LN{179}{2}
 \@LN{180}{2}
 \@LN{181}{2}
 \@LN{182}{2}
@@ -256,13 +263,13 @@
 \@LN{214}{2}
 \@LN{215}{2}
 \@LN{216}{2}
-\@LN@col{2}
 \@LN{217}{2}
 \@LN{218}{2}
 \@LN{219}{2}
 \@LN{220}{2}
 \@LN{221}{2}
 \@LN{222}{2}
+\@writefile{toc}{\contentsline {paragraph}{Durability to Model Modifications.}{3}{section*.1}\protected@file@percent }
 \@LN{223}{2}
 \@LN{224}{2}
 \@LN{225}{2}
@@ -270,17 +277,17 @@
 \@LN{227}{2}
 \@LN{228}{2}
 \@LN{229}{2}
+\@LN@col{2}
 \@LN{230}{2}
 \@LN{231}{2}
 \@LN{232}{2}
 \@LN{233}{2}
 \@LN{234}{2}
 \@LN{235}{2}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Detection via Likelihood Ratio Test}{3}{subsection.3.3}\protected@file@percent }
 \@LN{236}{2}
 \@LN{237}{2}
+\@writefile{toc}{\contentsline {paragraph}{Impact on downstream performance.}{3}{section*.2}\protected@file@percent }
 \@LN{238}{2}
-\newlabel{eq:llr}{{6}{3}{Detection via Likelihood Ratio Test}{equation.3.6}{}}
 \@LN{239}{2}
 \@LN{240}{2}
 \@LN{241}{2}
@@ -292,6 +299,404 @@
 \@LN{247}{2}
 \@LN{248}{2}
 \@LN{249}{2}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology}{3}{section.3}\protected@file@percent }
+\newlabel{sec:methodology}{{3}{3}{Methodology}{section.3}{}}
 \@LN{250}{2}
 \@LN{251}{2}
 \@LN{252}{2}
+\@LN{253}{2}
+\@LN{254}{2}
+\@LN{255}{2}
+\@LN{256}{2}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Preliminaries}{3}{subsection.3.1}\protected@file@percent }
+\@LN{257}{2}
+\@LN{258}{2}
+\@LN{259}{2}
+\@LN{260}{2}
+\@LN{261}{2}
+\@LN{262}{2}
+\@LN{263}{2}
+\@LN{264}{2}
+\@LN{265}{2}
+\@LN{266}{2}
+\@LN{267}{2}
+\@LN{268}{2}
+\@LN{269}{2}
+\@LN{270}{2}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Watermarking via Unembedding Perturbation}{3}{subsection.3.2}\protected@file@percent }
+\@LN{271}{2}
+\@LN{272}{2}
+\@LN{273}{2}
+\citation{kirchenbauer2023watermark}
+\@LN@col{1}
+\@LN{274}{3}
+\@LN{275}{3}
+\@LN{276}{3}
+\@LN{277}{3}
+\@LN{278}{3}
+\@LN{279}{3}
+\@LN{280}{3}
+\@LN{281}{3}
+\@LN{282}{3}
+\@LN{283}{3}
+\@LN{284}{3}
+\@LN{285}{3}
+\@LN{286}{3}
+\@LN{287}{3}
+\@LN{288}{3}
+\@LN{289}{3}
+\@LN{290}{3}
+\@LN{291}{3}
+\@LN{292}{3}
+\@LN{293}{3}
+\@LN{294}{3}
+\@LN{295}{3}
+\@LN{296}{3}
+\@LN{297}{3}
+\@LN{298}{3}
+\@LN{299}{3}
+\@LN{300}{3}
+\@LN{301}{3}
+\@LN{302}{3}
+\@LN{303}{3}
+\@LN{304}{3}
+\@LN{305}{3}
+\@LN{306}{3}
+\@LN{307}{3}
+\@LN{308}{3}
+\@LN{309}{3}
+\@LN{310}{3}
+\@LN{311}{3}
+\@LN{312}{3}
+\@LN{313}{3}
+\@LN{314}{3}
+\@LN{315}{3}
+\@LN{316}{3}
+\@LN{317}{3}
+\@LN{318}{3}
+\@LN{319}{3}
+\@LN@col{2}
+\@LN{320}{3}
+\@LN{321}{3}
+\@LN{322}{3}
+\@LN{323}{3}
+\@LN{324}{3}
+\@LN{325}{3}
+\@LN{326}{3}
+\@LN{327}{3}
+\@LN{328}{3}
+\@LN{329}{3}
+\@LN{330}{3}
+\@LN{331}{3}
+\@LN{332}{3}
+\@LN{333}{3}
+\@LN{334}{3}
+\@LN{335}{3}
+\@LN{336}{3}
+\@LN{337}{3}
+\@LN{338}{3}
+\@LN{339}{3}
+\@LN{340}{3}
+\@LN{341}{3}
+\@LN{342}{3}
+\@LN{343}{3}
+\@LN{344}{3}
+\@LN{345}{3}
+\@LN{346}{3}
+\@LN{347}{3}
+\@LN{348}{3}
+\@LN{349}{3}
+\@LN{350}{3}
+\@LN{351}{3}
+\@LN{352}{3}
+\@LN{353}{3}
+\@LN{354}{3}
+\@LN{355}{3}
+\@LN{356}{3}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Detection via Likelihood Ratio Test}{4}{subsection.3.3}\protected@file@percent }
+\@LN{357}{3}
+\@LN{358}{3}
+\@LN{359}{3}
+\newlabel{eq:llr}{{6}{4}{Detection via Likelihood Ratio Test}{equation.3.6}{}}
+\@LN{360}{3}
+\@LN{361}{3}
+\@LN{362}{3}
+\@LN{363}{3}
+\@LN@col{1}
+\@LN{364}{4}
+\@LN{365}{4}
+\@LN{366}{4}
+\@LN{367}{4}
+\@LN{368}{4}
+\@LN{369}{4}
+\@LN{370}{4}
+\@LN{371}{4}
+\@LN{372}{4}
+\@LN{373}{4}
+\@LN{374}{4}
+\@LN{375}{4}
+\@LN{376}{4}
+\@LN{377}{4}
+\@LN{378}{4}
+\@LN{379}{4}
+\@LN{380}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experiments and Results}{5}{section.4}\protected@file@percent }
+\newlabel{sec:experiments}{{4}{5}{Experiments and Results}{section.4}{}}
+\@LN{381}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Robustness against Paraphrasing}{5}{section.5}\protected@file@percent }
+\newlabel{sec:paraphasing}{{5}{5}{Robustness against Paraphrasing}{section.5}{}}
+\@LN{382}{4}
+\@LN{383}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Durability of Watermarking to Fine-tuning}{5}{section.6}\protected@file@percent }
+\newlabel{sec:finetuning}{{6}{5}{Durability of Watermarking to Fine-tuning}{section.6}{}}
+\@LN{384}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{5}{section.7}\protected@file@percent }
+\newlabel{sec:conclusion}{{7}{5}{Conclusion}{section.7}{}}
+\@LN{385}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Preamble}{5}{section.8}\protected@file@percent }
+\@LN{386}{4}
+\@LN{387}{4}
+\@LN{388}{4}
+\@LN{389}{4}
+\@LN{390}{4}
+\@LN{391}{4}
+\@LN{392}{4}
+\@LN{393}{4}
+\@LN{394}{4}
+\@LN@col{2}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Example commands for accented characters, to be used in, \emph  {e.g.}, Bib\TeX  {} entries.\relax }}{5}{table.caption.5}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:accents}{{1}{5}{Example commands for accented characters, to be used in, \emph {e.g.}, Bib\TeX {} entries.\relax }{table.caption.5}{}}
+\@LN{395}{4}
+\@LN{396}{4}
+\@LN{397}{4}
+\@LN{398}{4}
+\@LN{399}{4}
+\@LN{400}{4}
+\@LN{401}{4}
+\@LN{402}{4}
+\@LN{403}{4}
+\@LN{404}{4}
+\@LN{405}{4}
+\@LN{406}{4}
+\@LN{407}{4}
+\@LN{408}{4}
+\@LN{409}{4}
+\@LN{410}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Document Body}{5}{section.9}\protected@file@percent }
+\@LN{411}{4}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Footnotes}{5}{subsection.9.1}\protected@file@percent }
+\@LN{412}{4}
+\@LN{413}{4}
+\@LN{414}{4}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Tables and figures}{5}{subsection.9.2}\protected@file@percent }
+\@LN{415}{4}
+\@LN{416}{4}
+\@LN{417}{4}
+\@LN{418}{4}
+\@LN{419}{4}
+\@LN{420}{4}
+\@LN{421}{4}
+\@LN{422}{4}
+\@LN{423}{4}
+\@LN{424}{4}
+\@LN{425}{4}
+\@LN{426}{4}
+\@LN{427}{4}
+\@LN{428}{4}
+\citation{Gusfield:97}
+\citation{Gusfield:97}
+\citation{Gusfield:97}
+\citation{Gusfield:97}
+\citation{Gusfield:97}
+\citation{Gusfield:97}
+\citation{Gusfield:97}
+\citation{Gusfield:97}
+\citation{Gusfield:97}
+\@LN@col{1}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces A figure with a caption that runs for more than one line. Example image is usually available through the \texttt  {mwe} package without even mentioning it in the preamble.\relax }}{6}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:experiments}{{1}{6}{A figure with a caption that runs for more than one line. Example image is usually available through the \texttt {mwe} package without even mentioning it in the preamble.\relax }{figure.caption.6}{}}
+\@LN{429}{5}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Hyperlinks}{6}{subsection.9.3}\protected@file@percent }
+\@LN{430}{5}
+\@LN{431}{5}
+\@LN{432}{5}
+\@LN{433}{5}
+\@LN{434}{5}
+\@LN{435}{5}
+\@LN{436}{5}
+\@LN{437}{5}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Citations}{6}{subsection.9.4}\protected@file@percent }
+\@LN{438}{5}
+\@LN{439}{5}
+\@LN{440}{5}
+\@LN{441}{5}
+\@LN{442}{5}
+\@LN{443}{5}
+\@LN{444}{5}
+\@LN{445}{5}
+\@LN{446}{5}
+\@LN{447}{5}
+\@LN{448}{5}
+\@LN{449}{5}
+\@LN{450}{5}
+\@LN{451}{5}
+\@LN{452}{5}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.5}References}{6}{subsection.9.5}\protected@file@percent }
+\@LN{453}{5}
+\@LN{454}{5}
+\@LN{455}{5}
+\@LN{456}{5}
+\@LN{457}{5}
+\@LN{458}{5}
+\@LN{459}{5}
+\@LN{460}{5}
+\@LN{461}{5}
+\@LN@col{2}
+\@LN{462}{5}
+\@LN{463}{5}
+\@LN{464}{5}
+\@LN{465}{5}
+\@LN{466}{5}
+\@LN{467}{5}
+\@LN{468}{5}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.6}Equations}{6}{subsection.9.6}\protected@file@percent }
+\@LN{469}{5}
+\newlabel{eq:example}{{10}{6}{Equations}{equation.9.10}{}}
+\@LN{470}{5}
+\@LN{471}{5}
+\@LN{472}{5}
+\@LN{473}{5}
+\@LN{474}{5}
+\@LN{475}{5}
+\@LN{476}{5}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.7}Appendices}{6}{subsection.9.7}\protected@file@percent }
+\@LN{477}{5}
+\@LN{478}{5}
+\@LN{479}{5}
+\@LN{480}{5}
+\@writefile{toc}{\contentsline {section}{\numberline {10}Bib\TeX  {} Files}{6}{section.10}\protected@file@percent }
+\newlabel{sec:bibtex}{{10}{6}{Bib\TeX {} Files}{section.10}{}}
+\@LN{481}{5}
+\@LN{482}{5}
+\@LN{483}{5}
+\@LN{484}{5}
+\@LN{485}{5}
+\@LN{486}{5}
+\@LN{487}{5}
+\@LN{488}{5}
+\@LN{489}{5}
+\@LN{490}{5}
+\@LN{491}{5}
+\@LN{492}{5}
+\@LN{493}{5}
+\@LN{494}{5}
+\@LN{495}{5}
+\@LN{496}{5}
+\@LN{497}{5}
+\@LN{498}{5}
+\@LN{499}{5}
+\@LN{500}{5}
+\@LN{501}{5}
+\@LN{502}{5}
+\@LN{503}{5}
+\bibdata{custom}
+\bibcite{aaronson2023reform}{{1}{2023}{{Aaronson}}{{}}}
+\bibcite{ajith-etal-2024-downstream}{{2}{2024}{{Ajith et~al.}}{{Ajith, Singh, and Pruthi}}}
+\bibcite{block2025gaussmark}{{3}{2025}{{Block et~al.}}{{Block, Sekhari, and Rakhlin}}}
+\bibcite{christ2024provably}{{4}{2024}{{Christ et~al.}}{{Christ, Gunn, Malkin, and Raykova}}}
+\bibcite{elhassan2025can}{{5}{2025}{{Elhassan et~al.}}{{Elhassan, Ajroldi, Orvieto, and Geiping}}}
+\bibcite{gloaguen2025towards}{{6}{2025}{{Gloaguen et~al.}}{{Gloaguen, Jovanović, Staab, and Vechev}}}
+\bibcite{gu2023learnability}{{7}{2023}{{Gu et~al.}}{{Gu, Li, Liang, and Hashimoto}}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces A minimal working example to demonstrate how to place two images side-by-side.\relax }}{7}{figure.caption.7}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces  Citation commands supported by the style file. The style is based on the natbib package and supports all natbib citation commands. It also supports commands defined in previous ACL style files for compatibility. \relax }}{7}{table.caption.8}\protected@file@percent }
+\newlabel{citation-guide}{{2}{7}{Citation commands supported by the style file. The style is based on the natbib package and supports all natbib citation commands. It also supports commands defined in previous ACL style files for compatibility. \relax }{table.caption.8}{}}
+\@LN@col{1}
+\@LN{504}{6}
+\@LN{505}{6}
+\@LN{506}{6}
+\@LN{507}{6}
+\@LN{508}{6}
+\@LN{509}{6}
+\@LN{510}{6}
+\@LN{511}{6}
+\@LN{512}{6}
+\@LN{513}{6}
+\@LN{514}{6}
+\@LN{515}{6}
+\@LN{516}{6}
+\@LN{517}{6}
+\@LN{518}{6}
+\@LN{519}{6}
+\@LN{520}{6}
+\@LN{521}{6}
+\@LN{522}{6}
+\@LN{523}{6}
+\@LN{524}{6}
+\@LN{525}{6}
+\@LN{526}{6}
+\@LN{527}{6}
+\@LN@col{2}
+\@LN{528}{6}
+\@LN{529}{6}
+\@LN{530}{6}
+\@LN{531}{6}
+\@LN{532}{6}
+\@LN{533}{6}
+\@LN{534}{6}
+\@LN{535}{6}
+\@LN{536}{6}
+\@LN{537}{6}
+\@LN{538}{6}
+\@LN{539}{6}
+\@LN{540}{6}
+\@LN{541}{6}
+\@LN{542}{6}
+\@LN{543}{6}
+\@LN{544}{6}
+\@LN{545}{6}
+\@LN{546}{6}
+\@LN{547}{6}
+\@LN{548}{6}
+\@LN{549}{6}
+\@LN{550}{6}
+\@LN{551}{6}
+\@LN{552}{6}
+\@LN{553}{6}
+\@LN{554}{6}
+\@LN{555}{6}
+\bibcite{hu2022lora}{{8}{2022}{{Hu et~al.}}{{Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, Chen et~al.}}}
+\bibcite{kirchenbauer2023watermark}{{9}{2023}{{Kirchenbauer et~al.}}{{Kirchenbauer, Geiping, Wen, Katz, Miers, and Goldstein}}}
+\bibcite{kuditipudi2023robust}{{10}{2023}{{Kuditipudi et~al.}}{{Kuditipudi, Thickstun, Hashimoto, and Liang}}}
+\bibcite{liu2024adaptive}{{11}{2024}{{Liu and Bu}}{{}}}
+\bibcite{xu2024learningwatermarkllmgeneratedtext}{{12}{2024}{{Xu et~al.}}{{Xu, Yao, and Liu}}}
+\@LN@col{1}
+\@LN{556}{7}
+\@LN{557}{7}
+\@LN{558}{7}
+\@LN{559}{7}
+\@LN{560}{7}
+\@LN{561}{7}
+\@LN{562}{7}
+\@LN{563}{7}
+\@LN{564}{7}
+\@LN{565}{7}
+\@LN{566}{7}
+\@LN{567}{7}
+\@LN{568}{7}
+\@LN{569}{7}
+\@LN{570}{7}
+\@LN{571}{7}
+\@LN{572}{7}
+\@LN{573}{7}
+\@LN{574}{7}
+\@LN{575}{7}
+\@LN{576}{7}
+\@LN{577}{7}
+\@LN{578}{7}
+\@LN{579}{7}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Example Appendix}{8}{appendix.A}\protected@file@percent }
+\newlabel{sec:appendix}{{A}{8}{Example Appendix}{appendix.A}{}}
+\@LN{580}{7}
+\@LN@col{2}
+\gdef \@abspage@last{8}

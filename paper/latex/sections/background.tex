@@ -1,2 +1,38 @@
-\section{Related Work}
-\label{sec:related}
+\section{Background and Related Work}
+\label{sec:background_related}
+
+\subsection{Watermarking in Language Models}
+
+Watermarking techniques aim to embed imperceptible signals into model-generated text to enable provenance detection and mitigate misuse. Most existing approaches operate at decoding time, modifying next-token probabilities based on pseudorandom functions over the vocabulary. A common strategy is to define a favored subset of tokens—the green list—by hashing the previous \(k\) tokens, and then bias generation toward these tokens using additive logit shifts or sampling-based constraints. For example, \citet{kirchenbauer2023watermark} apply soft logit biasing toward green-listed tokens, while \citet{aaronson2023reform} and \citet{kuditipudi2023robust} employ cryptographically driven scores to guide token sampling. Detection is typically performed through statistical tests that evaluate whether the distribution of generated tokens aligns with the expected green list patterns.
+
+These methods typically involve a trade-off between two competing objectives: text generation quality and detection strength. Strong watermarking configurations—such as those using aggressive logit biasing or restrictive sampling—are easier to detect but tend to degrade text quality. In contrast, low-distortion watermarking setups preserve output quality but often result in signals that are harder to detect reliably.
+
+\subsection{Open-Source Model Challenges}
+
+While effective for API-served models, decoding-based watermarking fails in open-weight settings, where users can modify or bypass the decoding logic entirely. This motivates embedding the watermark directly into model weights. Model-level watermarking techniques fall into two categories:
+
+\textbf{Tuning-based methods.} \\
+These methods fine-tune the model to produce watermarked outputs.
+\begin{itemize}
+    \item \citet{gu2023learnability} propose \emph{watermark distillation}, where a student model mimics the outputs of a decoding-time-watermarked teacher. While effective in principle, this approach is compute-intensive and brittle under post-hoc fine-tuning. Empirical evidence shows that low-distortion variants (e.g., KGW with small \(\delta\)) are particularly hard to learn and require significantly more training data to retain watermark detectability.
+    
+    \item \citet{xu2024learningwatermarkllmgeneratedtext} use reinforcement learning to embed watermarks by optimizing a composite reward balancing detectability and fluency. A paired detector is trained alongside the generator model to guide generation. While robust to paraphrasing and substitution, the method requires costly fine-tuning.
+    
+    \item \citet{elhassan2024binoculars} introduce a dual-LoRA adapter framework where one model generates text and another evaluates it using the \emph{binoculars score}, a perplexity-based discrepancy metric. Training alternates between optimizing for utility and watermark strength using a regularized loss. While promising in detection accuracy, this method introduces co-training complexity and lacks evaluation under fine-tuning or transfer attacks.
+\end{itemize}
+
+\textbf{Edit-based methods.} \\
+These approaches modify model weights post hoc without additional training.
+\begin{itemize}
+    \item \citet{christ2024provably} propose a watermarking method that adds small, known perturbations to the bias vector of the model's final layer. Detection involves summing the perturbations associated with the unique tokens in a generated text and checking whether the total exceeds a threshold. However, since most language models do not use a bias term in the final layer, this approach introduces a non-standard architectural component and the watermark can be trivially removed by deleting the added bias.
+
+    \item \citet{block2025gaussmark} extend noise-based watermarking by injecting Gaussian perturbations into a subset of model weights (typically in decoder layers). Detection computes the dot product between the noise vector and the gradient of the log-likelihood with respect to the perturbed weights. The method introduces significant limitations: it requires a forward and partial backward pass, and both detection and generation quality are highly sensitive to noise placement and strength.
+\end{itemize}
+
+\paragraph{Durability to Model Modifications.}
+Durability is a central challenge in watermarking open-source models, which are frequently modified through quantization, pruning, merging, or fine-tuning. \citet{gloaguen2025towards} systematically evaluate existing approaches and find that none remain consistently detectable under such modifications.  In particular, distillation-based methods suffer from watermark decay under light supervision—even a few hundred steps of fine-tuning can erase the signal. Weight-editing schemes, while training-free, are often vulnerable to parameter shifts introduced by quantization or model merging. Their findings highlight the need for watermarking techniques designed explicitly with durability in mind.
+
+\paragraph{Impact on downstream performance.}
+Text quality is not the only metric affected by watermarking—\citet{ajith-etal-2024-downstream} show that even moderate-strength watermarks can significantly degrade performance on downstream tasks such as classification, QA, and generation. Since open-source watermarking methods embed the signal directly into model weights and cannot be easily undone once released, it is especially important to ensure that downstream task performance remains unaffected.
+
+

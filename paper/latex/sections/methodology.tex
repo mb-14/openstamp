@@ -1,4 +1,5 @@
 \section{Methodology}
+\label{sec:methodology}
 
 This section introduces our watermarking method, which embeds structured perturbations into the unembedding matrix of a causal language model. We first define key notations, then describe the watermark construction and detection strategy, followed by our primary instantiation.
 
@@ -6,7 +7,7 @@ This section introduces our watermarking method, which embeds structured perturb
 
 Let a causal language model process a sequence of tokens drawn from a vocabulary \( V = \{w_1, w_2, \dots, w_{|V|}\} \). Let \( x_i \in V \) denote the \( i \)-th token in the sequence, and let \( x_{<t} = (x_1, \dots, x_{t-1}) \) denote the prefix up to timestep \( t \).
 
-The model computes a hidden representation \( h_t = f(x_{<t}) \in \mathbb{R}^d \), where \( f: V^* \rightarrow \mathbb{R}^d \) is the model’s internal encoding function. The logit vector \( v_t \in \mathbb{R}^{|V|} \) for predicting the next token is given by:
+The model computes a hidden representation \( h_t = f(x_{<t}) \in \mathbb{R}^d \), where \( f: V^* \rightarrow \mathbb{R}^d \) is the model's internal encoding function. The logit vector \( v_t \in \mathbb{R}^{|V|} \) for predicting the next token is given by:
 
 \begin{equation}
     v_t = U h_t,
@@ -70,35 +71,7 @@ Let \( h_t \in \mathbb{R}^d \) be a fixed vector and let each row \( \Delta W_i 
 converges in distribution to \( \mathcal{N}(0, \|h_t\|^2) \) as \( d \to \infty \).
 \end{theorem}
 
-This result follows from the Lindeberg–Feller Central Limit Theorem, since the summands are independent with bounded variance and no dominant term.
-
-To ensure consistent perturbation magnitudes across timesteps and models, we optionally normalize the projection by dividing by the expected norm of \( h_t \), e.g., \( \sqrt{d} \) if \( h_t \sim \mathcal{N}(0, I_d) \).
-
-This instantiation yields a diffuse, non-deterministic watermark signal with high entropy and strong statistical regularities. Detection can be performed by correlating the observed logit shifts with the known projection matrix \( \Delta W \).
-
-
-% TODO:
-% - Explain how this general formulation allows for different watermarking strategies.
-% - Describe the necessary criteria for \Delta W to be effective
-% - Describe two instantiations of \delta W:
-% 1. Kirchenbauer style green/red list
-%   - Decompose \delta W into two parts:
-%       - A matrix G that generates one-hot vectors for one of k classes/clusters
-%       - A matrix H with k rows where each row is a red/green watermarking list of size V
-%       - The rows in H are pseudorandomly generated with a secret seed with parameters delta for the logit shift value, and gamma for the proportion of green tokens in the vocabulary
-%       - The seed is use to select the partition of red/green tokens
-%       - G is a linear mapping between model hidden states and one-hot labels which is learned via ridge regression
-%       - The labels are assigned via k-means clustering of the hidden states
-%    - This decomposition allows k different watermarking lists for each cluster of hidden states
-%    - Multiple clusters help reduce the chances of reverse engineering the watermark via frequency analysis 
-%    - The one-hot vectors are not exact since we are mapping a continuous space to a discrete space, but is good enough for our purposes. We show this empirically.
-% 2. A randomly generaty matrix from a standard normal distribution
-%    - Our random matrix Vxd is generated from a standard normal distribution with a secret seed
-%    - Our hidden state vector values also follow a gaussian distribution centered around 0
-%    - Multiplying these vectors with the random matrix gives us a V dimensional vector which also follows a gaussian distribution centered around 0 (prove this with CLT)
-%    - This essentially boosts some tokens and damps others
-%    - We divide the random matrix by the mean norm of the hidden state vector to ensure that the watermarking perturbation is in the desired range (why choose the norm? can there be a better way to do this?)
-%    - This method ensures that boosted/damped token change at every generation step
+To ensure consistent perturbation magnitudes across timesteps and models, we optionally normalize the projection by dividing by the expected norm of \( h_t \).
 
 
 \subsection{Detection via Likelihood Ratio Test}
