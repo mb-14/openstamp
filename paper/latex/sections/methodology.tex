@@ -5,15 +5,15 @@ This section introduces our watermarking method, which embeds structured perturb
 
 \subsection{Preliminaries}
 
-Let a causal language model process a sequence of tokens drawn from a vocabulary \( V = \{w_1, w_2, \dots, w_{|V|}\} \). Let \( x_i \in V \) denote the \( i \)-th token in the sequence, and let \( x_{<t} = (x_1, \dots, x_{t-1}) \) denote the prefix up to timestep \( t \).
+Let a causal language model process a sequence of tokens drawn from a vocabulary \( \mathcal{V} = \{w_1, w_2, \dots, w_{|\mathcal{V}|}\} \). Let \( x_i \in \mathcal{V} \) denote the \( i \)-th token in the sequence, and let \( x_{<t} = (x_1, \dots, x_{t-1}) \) denote the prefix up to timestep \( t \).
 
-The model computes a hidden representation \( h_t = f(x_{<t}) \in \mathbb{R}^d \), where \( f: V^* \rightarrow \mathbb{R}^d \) is the model's internal encoding function. The logit vector \( v_t \in \mathbb{R}^{|V|} \) for predicting the next token is given by:
+The model computes a hidden representation \( h_t = f(x_{<t}) \in \mathbb{R}^d \), where \( f: \mathcal{V}^* \rightarrow \mathbb{R}^d \) is the model's internal encoding function. The logit vector \( v_t \in \mathbb{R}^{|\mathcal{V}|} \) for predicting the next token is given by:
 
 \begin{equation}
     v_t = U h_t,
 \end{equation}
 
-where \( U \in \mathbb{R}^{|V| \times d} \) is the unembedding matrix.
+where \( U \in \mathbb{R}^{|\mathcal{V}| \times d} \) is the unembedding matrix.
 
 \subsection{Watermarking via Unembedding Perturbation}
 
@@ -27,13 +27,14 @@ where \( \Delta W \in \mathbb{R}^{|V| \times d} \) is the watermarking matrix. T
 \end{equation}
 effectively applying a hidden-state-dependent logit bias during generation.
 
-This general formulation enables a broad class of watermarking strategies. The structure of \( \Delta W \) governs the nature of the watermark: its strength, variability, and detectability. To be effective, \( \Delta W \) should satisfy:
+This general formulation enables a broad class of watermarking strategies. The structure of \( \Delta W \) governs the efficacy of the watermark. To be effective, \( \Delta W \) should produce logit biases that are:
 \begin{itemize}
-    \item \textbf{Detectability:} The watermark should induce statistically identifiable changes in output probabilities.
-    \item \textbf{Stealth:} Perturbations should preserve fluency and perplexity of generated text, requiring logit biases to be in a reasonable range.
-    \item \textbf{Diversity:} The watermark should vary across contexts and timesteps, making it harder to reverse-engineer.
+    \item \textbf{Detectable:} The logit biases should induce statistically identifiable changes in output probabilities.
+    \item \textbf{Stealthy:} Perturbations should preserve fluency and perplexity of generated text, requiring logit biases to be in a reasonable range.
+    \item \textbf{Diverse:} The logit biases should vary across contexts and timesteps, making it harder to reverse-engineer.
 \end{itemize}
-We describe two instantiations of \( \Delta W \) that satisfy these criteria.
+We describe two constructions of \( \Delta W \) that satisfy these criteria.
+
 
 \subsubsection{Green List Biasing}
 
