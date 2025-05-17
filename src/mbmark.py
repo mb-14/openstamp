@@ -10,17 +10,17 @@ class Mode:
 
 
 class HiddenStateExtractor(torch.nn.Module):
-    def __init__(self, model, unembedding_param_name):
-        super(HiddenStateExtractor, self).__init__()
+    def __init__(self, model):
+        super().__init__()
         self.model = model
         self.device = model.device
         self.model.eval()
-        setattr(self.model, unembedding_param_name, torch.nn.Identity())
 
     def forward(self, x):
-        outputs = self.model(**x)
-        hidden_states = outputs.logits
-        return hidden_states
+        # Call the base model to get hidden states before the final projection
+        outputs = self.model.model(**x, return_dict=True)
+        # shape: [batch_size, seq_len, hidden_dim]
+        return outputs.last_hidden_state
 
 
 class MbMark:
@@ -38,7 +38,7 @@ class MbMark:
 
         if mode == Mode.Detect:
             self.cluster_detector = HiddenStateExtractor(
-                model, unembedding_param_name=unembedding_param_name)
+                model)
             self.cluster_detector.eval()
         elif mode == Mode.Generate:
             with torch.no_grad():
