@@ -85,6 +85,7 @@ fi
 log_dir="${output_dir}/logs"
 mkdir -p "$log_dir"
 
+set -x
 
 timestamp=$(date +"%Y%m%d_%H%M%S")
 # if watermark is gaussmark, set the output file name accordingly
