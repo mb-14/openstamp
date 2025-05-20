@@ -6,7 +6,7 @@ datasets=("realnewslike" "arxiv" "booksum" "wikipedia")
 models=("meta-llama/Llama-2-7b-hf")
 datasets=("realnewslike")
 steps=(500 1000 1500 2000 2500)
-watermark=("mb" "mb2")
+watermark=("mb")
 
 for dataset in "${datasets[@]}"; do
   for model in "${models[@]}"; do

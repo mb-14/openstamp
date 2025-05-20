@@ -49,13 +49,15 @@ done
 model_suffix="${model#*/}"
 
 if [ -z "$output_dir" ]; then
-  output_dir="output/${model_suffix}/lora"
+  output_dir="output/${model_suffix}/lora/mb_k16"
 fi
 
 log_dir="${output_dir}/logs"
 mkdir -p "$log_dir"
 
 output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}_step=${step}.json"
+
+saved_model_file="saved_model/openwebtext_${model_suffix}/final_weights_k16.json"
 
 
 if [ "$dataset" = "realnewslike" ]; then
@@ -90,7 +92,9 @@ if [ "$generate" -eq 1 ]; then
   ${dataset_args} \
   --watermark $watermark \
   --model_name $model \
-  --step $step
+  --step $step \
+  --checkpoint_dir $output_dir \
+  --saved_model $saved_model_file
 fi
 
 

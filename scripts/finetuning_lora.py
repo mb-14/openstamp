@@ -36,6 +36,21 @@ parser.add_argument(
     help="Type of watermark to be used",
 )
 
+# Add argument for number of clustest which is a required parameter if watermark_type = mb
+parser.add_argument(
+    "--num_clusters",
+    type=int,
+    default=4,
+    help="Number of clusters to be used for mb watermarking",
+)
+
+parser.add_argument(
+    "--output_dir",
+    type=str,
+    default="lora",
+    help="Directory to save the output model",
+)
+
 
 parser.add_argument("--targeted", action="store_true",
                     help="Use targeted fine-tuning", default=False)
@@ -46,11 +61,7 @@ model_name = args.model_name
 
 model_suffix = model_name.split("/")[-1]
 dataset_name = "Skylion007/openwebtext"
-
-if args.watermark_type == "mb":
-    output_file = f"output/{model_suffix}/output_align=0_delta=1.2_gamma=0.3_k=4_seed=12997009_watermark=mb_dataset=realnewslike.json"
-else:
-    output_file = f"output/{model_suffix}/output_seed=12997009_watermark=mb2_dataset=realnewslike.json"
+dataset_suffix = dataset_name.split("/")[-1]
 
 # Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -61,45 +72,44 @@ if tokenizer.pad_token is None:
 base_model = AutoModelForCausalLM.from_pretrained(
     model_name,
     torch_dtype=torch.bfloat16,
-    device_map="auto",  # Load on one device temporarily
+    device_map="cuda",  # Load on one device temporarily
 )
 
 
-with open(output_file, "r") as f:
-    output_data = json.load(f)
-
-output_dir = f"output/{model_suffix}/lora"
+output_dir = f"output/{model_suffix}/{args.output_dir}"
 finetuning_type = "targeted" if args.targeted else "full"
 
 
-watermark_type = output_data["watermark"]
-config = output_data["config"]
-if watermark_type == "mb":
-    final_weight = torch.tensor(output_data["final_matrix"])
+seed = 12997009
+
+if args.watermark_type == "mb":
+    final_weight_file = f"saved_models/{dataset_suffix}_{model_suffix}/final_weights_k{args.num_clusters}.json"
+    with open(final_weight_file, "r") as f:
+        json_data = json.load(f)
+        final_weight = torch.tensor(json_data["final_matrix"])
+
     watermark = MbMark.mb(
-        delta=config["delta"],
-        gamma=config["gamma"],
-        seed=config["hash_key"],
+        delta=1.2,
+        gamma=0.3,
+        seed=seed,
         final_weight=final_weight,
         model=base_model,
         tokenizer=tokenizer,
-        unembedding_param_name=config["unembedding_param_name"],
+        unembedding_param_name="lm_head",
         mode=Mode.Generate,
+        low_rank=False
     )
-    checkpoint_suffix = f"ft={finetuning_type}_watermark=mb_delta={config['delta']}_gamma={config['gamma']}_k={config['n_clusters']}_seed={config['hash_key']}"
 
-elif watermark_type == "mb2":
+elif args.watermark_type == "mb2":
     watermark = MbMark.mb2(
-        seed=config["hash_key"],
+        seed=seed,
         model=base_model,
         tokenizer=tokenizer,
-        unembedding_param_name=config["unembedding_param_name"],
+        unembedding_param_name="lm_head",
         mode=Mode.Generate
     )
-    checkpoint_suffix = f"watermark=mb2_seed={config['hash_key']}"
 
 
-print(checkpoint_suffix)
 watermarked_model = watermark.model
 
 os.makedirs(output_dir, exist_ok=True)
@@ -164,6 +174,7 @@ progress_bar = tqdm(total=max_steps)
 
 
 for batch in dataloader:
+    batch = batch.to("cuda")
     outputs = model(**batch)
     loss = outputs.loss
     loss.backward()
@@ -176,7 +187,7 @@ for batch in dataloader:
 
     if step % save_steps == 0 and step > 0:
         model.save_pretrained(os.path.join(
-            output_dir, f"checkpoint-{checkpoint_suffix}-step-{step}"))
+            output_dir, f"checkpoint-step-{step}"))
 
     step += 1
     progress_bar.update(1)
@@ -187,4 +198,4 @@ progress_bar.close()
 
 # Save the final model
 model.save_pretrained(os.path.join(
-    output_dir, f"checkpoint-{checkpoint_suffix}-step-{step}"))
+    output_dir, f"checkpoint-step-{step}"))
