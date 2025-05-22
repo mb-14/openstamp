@@ -65,11 +65,11 @@ tokenizer = AutoTokenizer.from_pretrained(
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(args.model_name,
+base_model = AutoModelForCausalLM.from_pretrained(args.model_name,
                                              device_map="auto", torch_dtype=torch.bfloat16)
-model.eval()
+base_model.eval()
 
-device = model.device
+device = base_model.device
 
 
 prompt_dataset = load_dataset(
@@ -141,23 +141,47 @@ full_human_text = full_human_text[:args.num_samples]
 
 model_suffix = args.model_name.split("/")[-1]
 
+seed = 12997009
+
+if args.watermark == "mb":
+    final_weight_file = args.saved_model
+    with open(final_weight_file, "r") as f:
+        json_data = json.load(f)
+        final_weight = torch.tensor(json_data["final_matrix"])
+
+    watermark = MbMark.mb(
+        delta=1.2,
+        gamma=0.3,
+        seed=seed,
+        final_weight=final_weight,
+        model=base_model,
+        tokenizer=tokenizer,
+        unembedding_param_name="lm_head",
+        mode=Mode.Generate
+    )
+
+elif args.watermark == "mb2":
+    watermark = MbMark.mb2(
+        seed=seed,
+        model=base_model,
+        tokenizer=tokenizer,
+        unembedding_param_name="lm_head",
+        mode=Mode.Generate
+    )
+elif args.watermark == "gaussmark":
+    param = "model.layers.27.mlp.up_proj.weight"
+    sigma = 0.04
+    watermark = GaussMark(sigma=sigma, seed=seed,
+                          target_param_name=param, tokenizer=tokenizer, model=base_model)
+
+
+watermarked_model = watermark.model
 
 lora_ckpt_path = os.path.join(
     args.checkpoint_dir, f"checkpoint-step-{args.step}")
 
-original_unembedding = model.lm_head.weight.data.clone()
-peft_model = PeftModel.from_pretrained(model, lora_ckpt_path)
+peft_model = PeftModel.from_pretrained(watermarked_model, lora_ckpt_path)
 peft_model.merge_and_unload()
-updated_unembedding = peft_model.lm_head.weight.data.clone()
-with torch.no_grad():
-    model.lm_head.weight.data.copy_(original_unembedding)
-
-
-mb_mark = MbMark.from_augmented(
-    updated_unembedding, model, tokenizer, unembedding_param_name="lm_head", mode=Mode.Generate)
-
-watermarked_model = mb_mark.model
-
 
 model_text = []
 full_model_text = []
@@ -165,7 +189,7 @@ for batch in tqdm(prompts):
     if len(model_text) >= args.num_samples:
         break
     with torch.no_grad():
-        outputs = watermarked_model.generate(
+        outputs = peft_model.generate(
             input_ids=batch["input_ids"],
             attention_mask=batch["attention_mask"],
             top_p=args.top_p,
@@ -186,7 +210,7 @@ model_text = model_text[:args.num_samples]
 full_model_text = full_model_text[:args.num_samples]
 
 with torch.no_grad():
-    del model
+    del base_model, peft_model
     torch.cuda.empty_cache()
 
 # Create dict
@@ -214,11 +238,7 @@ sample_data = {
 }
 
 if args.watermark == "mb":
-    final_weight_file =  args.saved_model
-    with open(final_weight_file, "r") as f:
-        json_data = json.load(f)
-        final_weight = json_data["final_matrix"]
-        sample_data["final_matrix"] = final_weight
+    sample_data["final_matrix"] = json_data["final_matrix"]
 
 
 seed = 12997009
@@ -228,7 +248,7 @@ if args.watermark == "mb":
         "gamma": 0.3,
         "delta": 1.2,
         "hash_key": seed,
-        "n_clusters": torch.tensor(final_weight).size(0),
+        "n_clusters": final_weight.size(0),
         "unembedding_param_name": "lm_head",
     }
 elif args.watermark == "mb2":
@@ -236,6 +256,13 @@ elif args.watermark == "mb2":
         "hash_key": seed,
         "unembedding_param_name": "lm_head",
     }
+elif args.watermark == "gaussmark":
+    config = {
+        "sigma": 0.04,
+        "hash_key": seed,
+        "target_param_name": "model.layers.27.mlp.up_proj.weight",
+    }
+
 
 sample_data["config"] = config
 

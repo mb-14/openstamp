@@ -57,14 +57,15 @@ mkdir -p "$log_dir"
 
 output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}_step=${step}.json"
 
-saved_model_file="saved_model/openwebtext_${model_suffix}/final_weights_k16.json"
+saved_model_file="saved_models/openwebtext_${model_suffix}/final_weights_k16.json"
 
 
 if [ "$dataset" = "realnewslike" ]; then
     dataset_args="--dataset_path allenai/c4 \
     --dataset_config_name realnewslike \
     --dataset_split validation \
-    --data_field text"
+    --data_field text \
+    --streaming"
 elif [ "$dataset" = "wikipedia" ]; then
     dataset_args="--dataset_path wikipedia \
     --dataset_config_name 20220301.en \
