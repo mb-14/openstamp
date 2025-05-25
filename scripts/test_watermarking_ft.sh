@@ -37,6 +37,10 @@ while [[ "$#" -gt 0 ]]; do
     model="$2"
     shift
     ;;
+  --checkpoint_dir)
+    checkpoint_dir="$2"
+    shift
+    ;;
   *)
     echo "Unknown parameter passed: $1"
     exit 1
@@ -49,15 +53,13 @@ done
 model_suffix="${model#*/}"
 
 if [ -z "$output_dir" ]; then
-  output_dir="output/${model_suffix}/lora/mb_k16"
+  output_dir="output/${model_suffix}/lora/${checkpoint_dir}"
 fi
 
 log_dir="${output_dir}/logs"
 mkdir -p "$log_dir"
 
 output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}_step=${step}.json"
-
-saved_model_file="saved_models/openwebtext_${model_suffix}/final_weights_k16.json"
 
 
 if [ "$dataset" = "realnewslike" ]; then
@@ -94,12 +96,11 @@ if [ "$generate" -eq 1 ]; then
   --watermark $watermark \
   --model_name $model \
   --step $step \
-  --checkpoint_dir $output_dir \
-  --saved_model $saved_model_file
+  --checkpoint_dir $output_dir
 fi
 
 
-MODEL=$model OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$timestamp.ipynb"
+MODEL=$model OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$step.ipynb"
 
 python scripts/evaluate_ppl.py \
   --batch_size 16 \

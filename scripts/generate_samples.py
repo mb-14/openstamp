@@ -33,7 +33,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "gaussmark", "mb2"])
+                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3"])
     parser.add_argument('--dataset_path', type=str,
                         default="allenai/c4")
     parser.add_argument('--dataset_config_name', type=str,
@@ -157,6 +157,17 @@ if args.watermark == "mb":
     watermarked_model = mb_mark.model
 elif args.watermark == "mb2":
     mb_mark = MbMark.mb2(
+        delta=0.56,
+        seed=args.hash_key,
+        model=model,
+        unembedding_param_name="lm_head",
+        tokenizer=tokenizer,
+        mode=Mode.Generate
+    )
+    watermarked_model = mb_mark.model
+elif args.watermark == "mb3":
+    mb_mark = MbMark.mb3(
+        delta=0.56,
         seed=args.hash_key,
         model=model,
         unembedding_param_name="lm_head",
@@ -223,10 +234,11 @@ elif args.watermark == "gaussmark":
         "hash_key": args.hash_key,
         "target_param_name": "model.layers.27.mlp.up_proj.weight",
     }
-elif args.watermark == "mb2":
+elif args.watermark in ["mb2", "mb3"]:
     config = {
         "hash_key": args.hash_key,
         "unembedding_param_name": "lm_head",
+        "delta": 0.56
     }
 
 sample_data = {
