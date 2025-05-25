@@ -1,6 +1,7 @@
 import argparse
 from src.mbmark import MbMark, Mode
 from src.gaussmark import GaussMark
+from src.kgw_distilled import KGWDistilled
 import os
 import json
 from datasets import Dataset
@@ -28,7 +29,7 @@ def parse_args():
     parser.add_argument('--model_name', type=str,
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "gaussmark", "mb2"])
+                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3"])
     parser.add_argument('--dataset_path', type=str,
                         default="allenai/c4")
     parser.add_argument('--dataset_config_name', type=str,
@@ -40,7 +41,6 @@ def parse_args():
     parser.add_argument("--streaming", action="store_true", default=False)
     parser.add_argument('--step', type=int, default=500)
     parser.add_argument('--checkpoint_dir', type=str, required=True)
-    parser.add_argument('--saved_model', type=str)
 
     args = parser.parse_args()
 
@@ -66,7 +66,7 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 base_model = AutoModelForCausalLM.from_pretrained(args.model_name,
-                                             device_map="auto", torch_dtype=torch.bfloat16)
+                                                  device_map="auto", torch_dtype=torch.bfloat16)
 base_model.eval()
 
 device = base_model.device
@@ -141,17 +141,23 @@ full_human_text = full_human_text[:args.num_samples]
 
 model_suffix = args.model_name.split("/")[-1]
 
-seed = 12997009
+# Open config.json file in checkpoint_dir
+config_file = os.path.join(
+    args.checkpoint_dir, "config.json")
+with open(config_file, "r") as f:
+    config_data = json.load(f)
+
+seed = config_data["seed"]
 
 if args.watermark == "mb":
-    final_weight_file = args.saved_model
+    final_weight_file = config_data["final_weight_file"]
     with open(final_weight_file, "r") as f:
         json_data = json.load(f)
         final_weight = torch.tensor(json_data["final_matrix"])
 
     watermark = MbMark.mb(
-        delta=1.2,
-        gamma=0.3,
+        delta=config_data["delta"],
+        gamma=config_data["gamma"],
         seed=seed,
         final_weight=final_weight,
         model=base_model,
@@ -162,6 +168,17 @@ if args.watermark == "mb":
 
 elif args.watermark == "mb2":
     watermark = MbMark.mb2(
+        delta=config_data["delta"],
+        seed=seed,
+        model=base_model,
+        tokenizer=tokenizer,
+        unembedding_param_name="lm_head",
+        mode=Mode.Generate
+    )
+
+elif args.watermark == "mb3":
+    watermark = MbMark.mb3(
+        delta=config_data["delta"],
         seed=seed,
         model=base_model,
         tokenizer=tokenizer,
@@ -169,20 +186,25 @@ elif args.watermark == "mb2":
         mode=Mode.Generate
     )
 elif args.watermark == "gaussmark":
-    param = "model.layers.27.mlp.up_proj.weight"
-    sigma = 0.04
+    param = config_data["target_param_name"]
+    sigma = config_data["sigma"]
     watermark = GaussMark(sigma=sigma, seed=seed,
                           target_param_name=param, tokenizer=tokenizer, model=base_model)
-
+elif args.watermark == "distilled":
+    watermark = KGWDistilled(model=base_model, tokenizer=tokenizer)
 
 watermarked_model = watermark.model
 
-lora_ckpt_path = os.path.join(
-    args.checkpoint_dir, f"checkpoint-step-{args.step}")
+if args.step > 0:
+    lora_ckpt_path = os.path.join(
+        args.checkpoint_dir, f"checkpoint-step-{args.step}")
 
-peft_model = PeftModel.from_pretrained(watermarked_model, lora_ckpt_path)
-peft_model.merge_and_unload()
+    peft_model = PeftModel.from_pretrained(watermarked_model, lora_ckpt_path)
+    peft_model.merge_and_unload()
+else:
+    peft_model = watermarked_model
 
+peft_model.eval()
 model_text = []
 full_model_text = []
 for batch in tqdm(prompts):
@@ -241,26 +263,25 @@ if args.watermark == "mb":
     sample_data["final_matrix"] = json_data["final_matrix"]
 
 
-seed = 12997009
-
 if args.watermark == "mb":
     config = {
-        "gamma": 0.3,
-        "delta": 1.2,
+        "gamma": config_data["gamma"],
+        "delta": config_data["delta"],
         "hash_key": seed,
         "n_clusters": final_weight.size(0),
         "unembedding_param_name": "lm_head",
     }
-elif args.watermark == "mb2":
+elif args.watermark in ["mb2", "mb3"]:
     config = {
         "hash_key": seed,
+        "delta": config_data["delta"],
         "unembedding_param_name": "lm_head",
     }
 elif args.watermark == "gaussmark":
     config = {
-        "sigma": 0.04,
+        "sigma": config_data["sigma"],
         "hash_key": seed,
-        "target_param_name": "model.layers.27.mlp.up_proj.weight",
+        "target_param_name": config_data["target_param_name"],
     }
 
 

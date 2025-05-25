@@ -96,7 +96,7 @@ elif [ "$watermark" == "mb" ]; then
   if [ "$train" -eq 1 ]; then
     MODEL=$model PRF_KEY=$SEED ALIGN=$align OUTPUT_FILE=$output_file K=$K papermill notebooks/mse_v1.ipynb "$log_dir/mse_$timestamp.ipynb"
   fi
-elif [ "$watermark" == "mb2" ]; then
+elif [ "$watermark" == "mb2" ] || [ "$watermark" == "mb3" ]; then
   output_file="${output_dir}/output_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
 fi
 

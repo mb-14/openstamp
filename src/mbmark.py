@@ -65,7 +65,7 @@ class MbMark:
         return cls(model, tokenizer, unembedding_param_name, augmented_unembedding, mode)
 
     @classmethod
-    def mb2(cls, seed, model, tokenizer, unembedding_param_name, mode=Mode.Detect):
+    def mb2(cls, delta, seed, model, tokenizer, unembedding_param_name, mode=Mode.Detect):
         unembedding = getattr(model, unembedding_param_name).weight.data
         vocab_size = len(tokenizer)
         hs_norm = cls.model_to_hs_norm[model.config.name_or_path]
@@ -74,11 +74,32 @@ class MbMark:
         rng = torch.Generator()
         rng.manual_seed(seed)
         delta_mat = torch.randn(vocab_size, hidden_size, generator=rng)
-        delta_mat = delta_mat / (hs_norm * 1.8)
+        delta_mat = delta_mat * delta / hs_norm
         delta_mat = delta_mat.to(unembedding.device).to(unembedding.dtype)
 
         augmented_unembedding = unembedding.clone() + delta_mat
         return cls(model, tokenizer, unembedding_param_name, augmented_unembedding, mode)
+
+
+    @classmethod
+    def mb3(cls, delta, seed, model, tokenizer, unembedding_param_name, mode=Mode.Detect):
+        unembedding = getattr(model, unembedding_param_name).weight.data
+        vocab_size = len(tokenizer)
+        hs_norm = cls.model_to_hs_norm[model.config.name_or_path]
+        hidden_size = unembedding.shape[1]
+
+        rng = torch.Generator()
+        rng.manual_seed(seed)
+        U, _ = torch.linalg.qr(torch.randn(vocab_size, hidden_size, generator=rng))  # tall matrix
+        # Step 2: V ∈ ℝ^{d × d}, orthonormal square
+        V, _ = torch.linalg.qr(torch.randn(hidden_size, hidden_size, generator=rng))  # square matrix
+        delta_mat = (U @ V.T)  # Shape: (V, d), full-rank, spectrally flat
+        delta_mat = delta_mat * delta * (len(tokenizer)**0.5) / hs_norm
+        delta_mat = delta_mat.to(unembedding.device).to(unembedding.dtype)
+
+        augmented_unembedding = unembedding.clone() + delta_mat
+        return cls(model, tokenizer, unembedding_param_name, augmented_unembedding, mode)
+
 
     @classmethod
     def from_augmented(cls, augmented_unembedding, model, tokenizer, unembedding_param_name, mode=Mode.Detect):
