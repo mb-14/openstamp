@@ -2,6 +2,8 @@ data/
 junk/
 output/
 watermark-learnability/
+results/
+config/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
