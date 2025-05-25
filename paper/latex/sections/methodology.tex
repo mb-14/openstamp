@@ -37,23 +37,7 @@ To be effective, the perturbation \( \Delta W \) should satisfy the following re
 
 \end{itemize}
 
-\paragraph{Norm-Based Analysis of Perturbation Strength.}
-The total influence of \( \Delta W \) on the model's output logits can be analyzed using its Frobenius norm:
-\[
-    \|\Delta W\|_F = \left( \sum_{i=1}^{|\mathcal{V}|} \sum_{j=1}^{d} (\Delta W_{ij})^2 \right)^{1/2}.
-\]
-This norm provides a global upper bound on the magnitude of the logit perturbation at each timestep:
-\[
-    \|\Delta W h_t\| \leq \|\Delta W\|_F \cdot \|h_t\|.
-\]
-
-In practice, the norm \( \|h_t\| \) is typically stable and predictable in pretrained language models due to the widespread use of layer normalization \citep{ba2016layer}, which standardizes hidden activations across layers. As a result, we can approximate the bound using a model-dependent constant \( \mu_h \), the expected hidden state norm:
-\[
-    \|\Delta W h_t\| \lessapprox \|\Delta W\|_F \cdot \mu_h.
-\]
-While \( \mu_h \) may vary across architectures and layers, it is generally consistent within a given model.
-
-The Frobenius norm serves as a useful and interpretable analytic quantity for characterizing the potential effect on model behavior. In contrast, \citet{block2025gaussmark} applies perturbations to arbitrary subsets of model weights, making their effect on output logits indirect and difficult to predict. As a result, tuning for detectability and output quality relies heavily on empirical calibration. In our framework, the perturbation is applied directly at the logit level, and its impact can be more deterministically understood by analyzing the norm of \( \Delta W \). Moreover, \( \|\Delta W\|_F \) provides a meaningful way to constrain the overall strength of the perturbation during the design or parameterization of \( \Delta W \).
+Since the logit bias is computed as a linear transformation of the hidden state, our method provides a clearer and more interpretable view of how the perturbation affects model outputs. This contrasts with GaussMark~\citep{block2025gaussmark}, which perturbs arbitrary subsets of model weights, resulting in indirect and less predictable effects on output logits. Additionally, we observe that the rank of the perturbation matrix \( \Delta W \) serves as a practical proxy for the watermark’s robustness to post-hoc fine-tuning. \todo{Add reference to the rank analysis in the appendix.}
 
 
 \subsection{Illustrative Examples}
@@ -61,18 +45,19 @@ This framework accommodates a broad family of parameterizations for \( \Delta W 
 
 \subsubsection{Green List Biasing}
 
-This method draws inspiration from the watermarking approach of \citet{kirchenbauer2023watermark}, which boosts the logits of tokens belonging to a pseudorandomly selected \emph{green list}. At each timestep, the green list is generated using a pseudorandom function (PRF) that depends on a secret seed and the preceding \( n \) tokens in the prefix. This ensures that the token biases vary in a deterministic, structured, and context-sensitive manner.
+This method draws inspiration from the watermarking approach of \citet{kirchenbauer2023watermark}, which boosts the logits of tokens belonging to a pseudorandomly selected \emph{green list}. At each timestep, the green list is generated using a pseudorandom function (PRF) that depends on a secret seed and a configurable number of tokens in the prefix.
 
-To encode this behavior directly into the model weights, we express the perturbation matrix \( \Delta W \) as the product of two matrices:
+We try to encode this behavior by constructing a perturbation matrix \( \Delta W \) that generates logit biases that boost the logits of tokens in a green list. At each time step a green list is selected from a set of predefined green lists that were pseudorandomly generated.
+To encode this behavior we express \( \Delta W \) as the product of two matrices:
 \begin{equation}
     \Delta W = G H,
 \end{equation}
 where:
 
 \begin{itemize}
-    \item \( G \in \mathbb{R}^{|\mathcal{V}| \times C} \) contains \( C \) watermarking lists represented as row vectors. For each pseudo-class \( c \in \{1, \dots, C\} \), the corresponding row \( H_c \in \mathbb{R}^{|\mathcal{V}|} \) is defined as:
+    \item \( G \in \mathbb{R}^{|\mathcal{V}| \times C} \) contains \( C \) green lists represented as row vectors. For each list \( c \in \{1, \dots, C\} \), the corresponding row \( G_c \in \mathbb{R}^{|\mathcal{V}|} \) is defined as:
           \[
-              (H_c)_i =
+              (G_c)_i =
               \begin{cases}
                   \delta & \text{if } i \in \mathcal{G}_c \\
                   0      & \text{otherwise}
@@ -92,7 +77,7 @@ where:
           \end{enumerate}
 \end{itemize}
 
-This construction ensures that hidden states in similar regions of representation space receive similar perturbations. Although the selectors in \( G \) are soft, they closely approximate discrete assignments and enable reliable watermark detection. The structured factorization of \( \Delta W \) into \( G \) and \( H \) allows multiple green list rules to be encoded in a single matrix perturbation.
+This construction ensures that hidden states in similar regions of representation space receive similar perturbations. Although the selectors produced by \( H \) are soft, they closely approximate discrete assignments and enable reliable watermark detection. The structured factorization of \( \Delta W \) into \( G \) and \( H \) allows multiple green list rules to be encoded in a single matrix perturbation.
 
 \subsubsection{Gaussian Random Projection}
 

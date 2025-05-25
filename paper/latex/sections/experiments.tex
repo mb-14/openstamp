@@ -1,18 +1,138 @@
 \section{Experiments and Results}
 \label{sec:experiments}
 
-% - We evaluate our methods to assess the following:
-%   - Detection accuracy for a given level of distortion
-%       - We generate 500 samples watermarked text of length 200 tokens as continuations 50 token prompts from c4/realnewslike
-%       - We compute AUCROC/Best F1 Score and TPR@0.1%FPR for each method
-%       - We measure distortion using PPL computed by Llama2-13b as the oracle
-%       - We compare with gaussmark (sigma=0.04, weights = model.layers.27.mlp.up_proj.weigh) and kgw logit distilled (delta=2.0, k=1, gamma=0.25) 
-%       - We also compare with decoding based KGW as the upper bound baseline
-%   - Downstream task performance
-%       - We measure if there is any drop in performance on downstream tasks: hellaswag, gsm8k, and arc_challenge
-%   - Robustness to paraphrasing
-%       - We paraphrase our watermarked text using DIPPER with lexical diversity of 20 and 60
-%       - We compute AUCROC/Best F1 Score and TPR@1%FPR for each method
-%       - We compare with gaussmark (sigma=0.04, weights = model.layers.27.mlp.up_proj.weigh) and kgw logit distilled (delta=2.0, k=1, gamma=0.25)
-%       - We also compare with decoding based KGW with k=0 as the upper bound baseline
-%   
+% \subsection{Experimental Setup}
+% \label{subsec:setup}
+% We evaluate our watermarking strategies along four axes: \textbf{(i)}~detection accuracy under controlled distortion, \textbf{(ii)}~downstream task retention, \textbf{(iii)}~robustness to paraphrasing, and \textbf{(iv)}~durability against fine-tuning. All experiments are conducted on \texttt{meta-llama/Llama-2-13b-hf}. Additional results on Mistral and Qwen are provided in Appendix~\ref{sec:appendix:other-models}.
+
+% \paragraph{Watermarked Sample Generation.} We generate 500 watermarked completions of 200 tokens each, sampled as continuations from 50-token prompts drawn from the \texttt{C4-realnewslike} corpus. The unwatermarked completions are generated from the same model without watermarking. Detection is performed on the continuation only, without access to the prompt, to simulate realistic post-hoc scenarios.
+
+% \paragraph{Evaluation Metrics.} 
+% \begin{itemize}
+%     \item \textbf{Distortion:} Measured via perplexity (PPL) using a clean \texttt{Llama-2-13b-hf} model.
+%     \item \textbf{Detection:} AUROC, Best F1, and TPR@FPR thresholds of 1\% and 0.1\%.
+%     \item \textbf{Downstream utility:} Accuracy or EM on HellaSwag, GSM8k, and ARC-Challenge.
+% \end{itemize}
+
+% \paragraph{Baselines.} We compare both parameterizations of \(\delta W\) against the following baselines:
+% \begin{itemize}
+%     \item \textbf{GaussMark:} \(\sigma = 0.04\), applied to \texttt{model.layers.27.mlp.up\_proj.weight}.
+%     \item \textbf{KGW Logit-Distilled:} \(\delta = 2.0\), \(k = 1\), \(\gamma = 0.25\).
+%     \item \textbf{KGW Decoding (Greenlist):} \(k = 0\) as a high-detection upper bound.
+% \end{itemize}
+% All results are averaged over 3 random seeds.
+
+% \subsection{Detection Accuracy vs. Distortion}
+% \label{subsec:detection-vs-distortion}
+% We analyze the trade-off between watermark strength and detectability by varying the hyperparameters used in constructing \(\delta W\). Key results are reported below.
+
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=\linewidth]{figures/detection_vs_ppl.pdf}
+%     \caption{Detection performance (TPR@1\%FPR, AUROC) vs. PPL for each method.}
+%     \label{fig:detection-vs-ppl}
+% \end{figure}
+
+% \begin{table}[h]
+%     \centering
+%     \caption{Detection metrics (averaged over 3 seeds) at fixed PPL buckets.}
+%     \label{tab:detection-metrics}
+%     \begin{tabular}{lcccc}
+%         \toprule
+%         Method & PPL & AUROC & TPR@1\%FPR & TPR@0.1\%FPR \\
+%         \midrule
+%         Ours (\(\delta W\) A) & -- & -- & -- & -- \\
+%         Ours (\(\delta W\) B) & -- & -- & -- & -- \\
+%         GaussMark & -- & -- & -- & -- \\
+%         KGW-Logit & -- & -- & -- & -- \\
+%         KGW-Decoding & -- & -- & -- & -- \\
+%         \bottomrule
+%     \end{tabular}
+% \end{table}
+
+% \subsection{Impact on Downstream Task Accuracy}
+% \label{subsec:downstream}
+% We evaluate whether watermarking affects task accuracy. Each method is evaluated on the dev sets of three tasks:
+
+% \begin{table}[h]
+%     \centering
+%     \caption{Downstream performance (accuracy or EM) on unwatermarked vs. watermarked models.}
+%     \label{tab:downstream}
+%     \begin{tabular}{lccc}
+%         \toprule
+%         Method & HellaSwag & GSM8k & ARC-Challenge \\
+%         \midrule
+%         No watermark & -- & -- & -- \\
+%         Ours (\(\delta W\) A) & -- & -- & -- \\
+%         Ours (\(\delta W\) B) & -- & -- & -- \\
+%         GaussMark & -- & -- & -- \\
+%         KGW-Logit & -- & -- & -- \\
+%         \bottomrule
+%     \end{tabular}
+% \end{table}
+
+% \subsection{Robustness to Paraphrasing}
+% \label{subsec:paraphrasing}
+% To assess robustness, we paraphrase watermarked samples using DIPPER \citep{krishna2023paraphrasing} at lexical diversity levels of 20 and 60. Detection metrics are reported below.
+
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=\linewidth]{figures/paraphrase_robustness.pdf}
+%     \caption{Detection performance under paraphrasing.}
+%     \label{fig:paraphrasing}
+% \end{figure}
+
+% \begin{table}[h]
+%     \centering
+%     \caption{Detection metrics under paraphrasing at diversity 20/60.}
+%     \label{tab:paraphrase-results}
+%     \begin{tabular}{lcccc}
+%         \toprule
+%         Method & LexDiv & AUROC & Best F1 & TPR@1\%FPR \\
+%         \midrule
+%         Ours (\(\delta W\) A) & 20 & -- & -- & -- \\
+%         Ours (\(\delta W\) A) & 60 & -- & -- & -- \\
+%         GaussMark & 20 & -- & -- & -- \\
+%         KGW-Decoding & 60 & -- & -- & -- \\
+%         \bottomrule
+%     \end{tabular}
+% \end{table}
+
+% \subsection{Durability under Fine-Tuning}
+% \label{subsec:durability}
+% We simulate a post-deployment adversary performing LoRA-based fine-tuning over 2500 steps on 1\% of OpenWebText.
+
+% \paragraph{Fine-Tuning Configuration.}
+% \begin{itemize}
+%     \item \textbf{Optimizer:} AdamW, LR = 1e-5, cosine scheduler, warmup = 500 steps
+%     \item \textbf{Batch size:} 32, Sequence length: 512
+%     \item \textbf{LoRA:} \(r=8\), \(\alpha=32\), dropout = 0.05
+% \end{itemize}
+
+% \paragraph{Target Modules.}
+% \begin{itemize}
+%     \item \textbf{Ours:} \texttt{lm\_head} (unembedding)
+%     \item \textbf{Baselines:} \texttt{mlp.\{up,down,gate\}_proj} in top 10 layers + \texttt{lm\_head}
+% \end{itemize}
+
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=\linewidth]{figures/durability_over_ft.pdf}
+%     \caption{Detection degradation curve over fine-tuning steps.}
+%     \label{fig:durability}
+% \end{figure}
+
+% \begin{table}[h]
+%     \centering
+%     \caption{Detection metric drop (AUROC, TPR@1\%FPR) every 500 steps of fine-tuning.}
+%     \label{tab:durability}
+%     \begin{tabular}{lcccccc}
+%         \toprule
+%         Method & Step 0 & Step 500 & Step 1000 & Step 1500 & Step 2000 & Step 2500 \\
+%         \midrule
+%         Ours (\(\delta W\) A) & -- & -- & -- & -- & -- & -- \\
+%         GaussMark & -- & -- & -- & -- & -- & -- \\
+%         KGW-Logit & -- & -- & -- & -- & -- & -- \\
+%         \bottomrule
+%     \end{tabular}
+% \end{table}

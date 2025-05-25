@@ -14,6 +14,8 @@
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{todonotes}
 \newtheorem{theorem}{Theorem}
 \setcounter{secnumdepth}{3}
 
@@ -124,7 +126,7 @@
 %%% Introduction %%%
 \input{sections/introduction.tex}
 
-%%% Background and related Work %%%
+%%% Background %%%
 \input{sections/background.tex}
 
 %%% Methodology %%%
@@ -133,13 +135,8 @@
 %%% Experiments %%%
 \input{sections/experiments.tex}
 
-%%% Robustness to Paraphrasing %%%
-\input{sections/paraphrasing.tex}
-
-
-%%% Durability against Fine-tuning %%%
-\input{sections/finetuning.tex}
-
+%%% Related Work %%%
+\input{sections/related.tex}
 
 %%% Conclusion %%%
 \input{sections/conclusion.tex}
@@ -147,11 +144,8 @@
 %%% References %%%
 \bibliography{custom}
 
-\appendix
+%%% Appendix %%%
+\include{sections/appendix.tex}
 
-\section{Example Appendix}
-\label{sec:appendix}
-
-This is an appendix.
 
 \end{document}
