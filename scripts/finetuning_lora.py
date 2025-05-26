@@ -89,6 +89,12 @@ else:
 seed = 12997009
 if args.watermark_type == "distilled":
     watermark = KGWDistilled(model=base_model, tokenizer=tokenizer)
+
+    config = {
+        "gamma": 0.25,
+        "kgw_device": "cpu",
+        "seeding_scheme": "simple_1"
+    }
 elif args.watermark_type == "mb":
     final_weight_file = f"saved_models/{dataset_suffix}_{model_suffix}/final_weights_k{args.num_clusters}.json"
     with open(final_weight_file, "r") as f:

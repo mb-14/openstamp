@@ -4,11 +4,11 @@ set -e # Optional: exit immediately if a command fails
 
 datasets=("realnewslike" "arxiv" "booksum" "wikipedia")
 models=("meta-llama/Llama-2-7b-hf")
+models=("cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2")
 datasets=("realnewslike")
 steps=(0 500 1000 1500 2000 2500)
-steps=(0)
-checkpoint_dirs=("mb3")
-watermark=("mb3")
+checkpoint_dirs=("kgw_distilled")
+watermark=("distilled")
 
 for dataset in "${datasets[@]}"; do
   for model in "${models[@]}"; do

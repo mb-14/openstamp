@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('--model_name', type=str,
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3"])
+                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3", "distilled"])
     parser.add_argument('--dataset_path', type=str,
                         default="allenai/c4")
     parser.add_argument('--dataset_config_name', type=str,
@@ -147,7 +147,6 @@ config_file = os.path.join(
 with open(config_file, "r") as f:
     config_data = json.load(f)
 
-seed = config_data["seed"]
 
 if args.watermark == "mb":
     final_weight_file = config_data["final_weight_file"]
@@ -158,7 +157,7 @@ if args.watermark == "mb":
     watermark = MbMark.mb(
         delta=config_data["delta"],
         gamma=config_data["gamma"],
-        seed=seed,
+        seed=config_data["seed"],
         final_weight=final_weight,
         model=base_model,
         tokenizer=tokenizer,
@@ -169,7 +168,7 @@ if args.watermark == "mb":
 elif args.watermark == "mb2":
     watermark = MbMark.mb2(
         delta=config_data["delta"],
-        seed=seed,
+        seed=config_data["seed"],
         model=base_model,
         tokenizer=tokenizer,
         unembedding_param_name="lm_head",
@@ -179,7 +178,7 @@ elif args.watermark == "mb2":
 elif args.watermark == "mb3":
     watermark = MbMark.mb3(
         delta=config_data["delta"],
-        seed=seed,
+        seed=config_data["seed"],
         model=base_model,
         tokenizer=tokenizer,
         unembedding_param_name="lm_head",
@@ -188,10 +187,12 @@ elif args.watermark == "mb3":
 elif args.watermark == "gaussmark":
     param = config_data["target_param_name"]
     sigma = config_data["sigma"]
-    watermark = GaussMark(sigma=sigma, seed=seed,
+    watermark = GaussMark(sigma=sigma, seed=config_data["seed"],
                           target_param_name=param, tokenizer=tokenizer, model=base_model)
 elif args.watermark == "distilled":
-    watermark = KGWDistilled(model=base_model, tokenizer=tokenizer)
+    watermark = KGWDistilled(model=base_model, tokenizer=tokenizer, gamma=config_data["gamma"],
+                             seeding_scheme=config_data["seeding_scheme"], kgw_device=config_data["kgw_device"])
+
 
 watermarked_model = watermark.model
 
@@ -267,21 +268,27 @@ if args.watermark == "mb":
     config = {
         "gamma": config_data["gamma"],
         "delta": config_data["delta"],
-        "hash_key": seed,
+        "hash_key": config_data["seed"],
         "n_clusters": final_weight.size(0),
         "unembedding_param_name": "lm_head",
     }
 elif args.watermark in ["mb2", "mb3"]:
     config = {
-        "hash_key": seed,
+        "hash_key": config_data["seed"],
         "delta": config_data["delta"],
         "unembedding_param_name": "lm_head",
     }
 elif args.watermark == "gaussmark":
     config = {
         "sigma": config_data["sigma"],
-        "hash_key": seed,
+        "hash_key": config_data["seed"],
         "target_param_name": config_data["target_param_name"],
+    }
+elif args.watermark == "distilled":
+    config = {
+        "gamma": config_data["gamma"],
+        "seeding_scheme": config_data["seeding_scheme"],
+        "kgw_device": config_data["kgw_device"]
     }
 
 
