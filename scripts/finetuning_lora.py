@@ -88,7 +88,8 @@ else:
 
 seed = 12997009
 if args.watermark_type == "distilled":
-    watermark = KGWDistilled(model=base_model, tokenizer=tokenizer)
+    watermark = KGWDistilled(model=base_model, tokenizer=tokenizer, gamma=0.25, kgw_device="cpu",
+                             seeding_scheme="simple_1")
 
     config = {
         "gamma": 0.25,
@@ -149,7 +150,7 @@ elif args.watermark_type == "gaussmark":
     param = "model.layers.27.mlp.up_proj.weight"
     sigma = 0.04
     watermark = GaussMark(sigma=sigma, seed=seed,
-                          target_param_name=param, tokenizer=tokenizer, model=base_model, mode=Mode.Generate)
+                          target_param_name=param, tokenizer=tokenizer, model=base_model)
 
     config = {
         "sigma": sigma,
@@ -162,7 +163,7 @@ watermarked_model = watermark.model
 
 
 os.makedirs(output_dir, exist_ok=True)
-max_steps = 2500
+max_steps = 4000
 warmup_steps = 500
 learning_rate = 1e-5
 batch_size = 32
@@ -172,7 +173,7 @@ save_steps = 500
 
 # Load and shuffle dataset
 raw_dataset = load_dataset(
-    dataset_name, split="train[:1%]", trust_remote_code=True).shuffle(seed=42)
+    dataset_name, split="train[:2%]", trust_remote_code=True).shuffle(seed=42)
 
 
 def tokenize(example):

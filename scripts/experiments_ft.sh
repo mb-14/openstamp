@@ -6,7 +6,7 @@ datasets=("realnewslike" "arxiv" "booksum" "wikipedia")
 models=("meta-llama/Llama-2-7b-hf")
 models=("cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2")
 datasets=("realnewslike")
-steps=(0 500 1000 1500 2000 2500)
+steps=(0 500 1000 1500 2000 2500 3000 3500 4000)
 checkpoint_dirs=("kgw_distilled")
 watermark=("distilled")
 
