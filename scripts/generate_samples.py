@@ -1,6 +1,7 @@
 import argparse
 from src.mbmark import MbMark, Mode
 from src.gaussmark import GaussMark
+from src.kgw_distilled import KGWDistilled
 import os
 import json
 from datasets import Dataset
@@ -33,7 +34,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3"])
+                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3", "distilled"])
     parser.add_argument('--dataset_path', type=str,
                         default="allenai/c4")
     parser.add_argument('--dataset_config_name', type=str,
@@ -43,6 +44,8 @@ def parse_args():
     parser.add_argument('--data_field', type=str,
                         default="text")
     parser.add_argument("--streaming", action="store_true", default=False)
+    parser.add_argument("--sigma", type=float, default=0.018,
+                        help="Standard deviation for GaussMark")
 
     args = parser.parse_args()
 
@@ -157,7 +160,7 @@ if args.watermark == "mb":
     watermarked_model = mb_mark.model
 elif args.watermark == "mb2":
     mb_mark = MbMark.mb2(
-        delta=0.56,
+        delta=args.delta,
         seed=args.hash_key,
         model=model,
         unembedding_param_name="lm_head",
@@ -167,7 +170,7 @@ elif args.watermark == "mb2":
     watermarked_model = mb_mark.model
 elif args.watermark == "mb3":
     mb_mark = MbMark.mb3(
-        delta=0.56,
+        delta=args.delta,
         seed=args.hash_key,
         model=model,
         unembedding_param_name="lm_head",
@@ -176,11 +179,15 @@ elif args.watermark == "mb3":
     )
     watermarked_model = mb_mark.model
 elif args.watermark == "gaussmark":
-    param = "model.layers.27.mlp.up_proj.weight"
-    sigma = 0.04
+    target_param_name = "model.layers.20.mlp.up_proj.weight"
+    sigma = args.sigma
     gaussmark = GaussMark(sigma=sigma, seed=args.hash_key,
-                          target_param_name=param, tokenizer=tokenizer, model=model)
+                          target_param_name=target_param_name, tokenizer=tokenizer, model=model)
     watermarked_model = gaussmark.model
+elif args.watermark == "distilled":
+    watermark = KGWDistilled(model=model, tokenizer=tokenizer, gamma=0.25,
+                             seeding_scheme="simple_1", kgw_device="cpu")
+    watermarked_model = watermark.model
 
 model_text = []
 full_model_text = []
@@ -232,13 +239,19 @@ elif args.watermark == "gaussmark":
     config = {
         "sigma": sigma,
         "hash_key": args.hash_key,
-        "target_param_name": "model.layers.27.mlp.up_proj.weight",
+        "target_param_name": target_param_name
     }
 elif args.watermark in ["mb2", "mb3"]:
     config = {
         "hash_key": args.hash_key,
         "unembedding_param_name": "lm_head",
-        "delta": 0.56
+        "delta": args.delta,
+    }
+elif args.watermark == "distilled":
+    config = {
+        "gamma": 0.25,
+        "seeding_scheme": "simple_1",
+        "kgw_device": "cpu",
     }
 
 sample_data = {

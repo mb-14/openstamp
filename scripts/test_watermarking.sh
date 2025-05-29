@@ -12,6 +12,7 @@ align=0
 train=0
 dataset="realnewslike"
 model="meta-llama/Llama-2-7b-hf"
+sigma=0.018
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -67,6 +68,10 @@ while [[ "$#" -gt 0 ]]; do
     model="$2"
     shift
     ;;
+  --sigma)
+    sigma="$2"
+    shift
+    ;;
   *)
     echo "Unknown parameter passed: $1"
     exit 1
@@ -90,14 +95,19 @@ set -x
 timestamp=$(date +"%Y%m%d_%H%M%S")
 # if watermark is gaussmark, set the output file name accordingly
 if [ "$watermark" == "gaussmark" ]; then
-  output_file="${output_dir}/output_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
+  output_file="${output_dir}/output_seed=${SEED}_sigma=${sigma}_watermark=${watermark}_dataset=${dataset}.json"
 elif [ "$watermark" == "mb" ]; then
   output_file="${output_dir}/output_align=${align}_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
   if [ "$train" -eq 1 ]; then
     MODEL=$model PRF_KEY=$SEED ALIGN=$align OUTPUT_FILE=$output_file K=$K papermill notebooks/mse_v1.ipynb "$log_dir/mse_$timestamp.ipynb"
   fi
 elif [ "$watermark" == "mb2" ] || [ "$watermark" == "mb3" ]; then
-  output_file="${output_dir}/output_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
+  output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_watermark=${watermark}_dataset=${dataset}.json"
+elif [ "$watermark" == "distilled" ]; then
+  output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}.json"
+else
+  echo "Unsupported watermark type ${watermark}."
+  exit 1
 fi
 
 if [ "$dataset" = "realnewslike" ]; then
@@ -134,7 +144,8 @@ if [ "$generate" -eq 1 ]; then
   --gamma $GAMMA \
   --hash_key $SEED \
   --watermark $watermark \
-  --model_name $model 
+  --model_name $model \
+  --sigma $sigma
 fi
 
 # Generate paraphrases if PARAPHRASE is set to 1

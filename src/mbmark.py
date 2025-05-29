@@ -1,9 +1,11 @@
 import torch
 from functools import cached_property
 import scipy.stats
-
+import numpy as np
 
 # Create ENUM for the different modes
+
+
 class Mode:
     Generate = "generate"
     Detect = "detect"
@@ -46,6 +48,19 @@ class MbMark:
                     augmented_unembedding)
 
     @classmethod
+    def sample_beta(cls, size, beta, seed, device='cpu'):
+        """
+        Samples from Beta(alpha, beta) using a fixed seed.
+        Returns a tensor of shape `size`.
+        """
+        # Use reparameterization trick: sample two Gamma(α,1) variables and normalize
+        rng = np.random.Generator(np.random.PCG64(seed=seed))
+        samples_np = rng.beta(beta, beta, size=size)
+        samples = torch.from_numpy(samples_np).float()
+        samples = samples * 2 - 1
+        return samples.to(device)
+
+    @classmethod
     def mb(cls, delta, gamma, seed, final_weight, model, tokenizer, unembedding_param_name, mode=Mode.Detect):
         unembedding = getattr(model, unembedding_param_name).weight.data
         vocab_size = len(tokenizer)
@@ -71,15 +86,13 @@ class MbMark:
         hs_norm = cls.model_to_hs_norm[model.config.name_or_path]
         hidden_size = unembedding.shape[1]
 
-        rng = torch.Generator()
-        rng.manual_seed(seed)
-        delta_mat = torch.randn(vocab_size, hidden_size, generator=rng)
+        delta_mat = cls.sample_beta(
+            size=(vocab_size, hidden_size), beta=0.5, seed=seed, device=unembedding.device)
         delta_mat = delta_mat * delta / hs_norm
         delta_mat = delta_mat.to(unembedding.device).to(unembedding.dtype)
 
         augmented_unembedding = unembedding.clone() + delta_mat
         return cls(model, tokenizer, unembedding_param_name, augmented_unembedding, mode)
-
 
     @classmethod
     def mb3(cls, delta, seed, model, tokenizer, unembedding_param_name, mode=Mode.Detect):
@@ -90,16 +103,17 @@ class MbMark:
 
         rng = torch.Generator()
         rng.manual_seed(seed)
-        U, _ = torch.linalg.qr(torch.randn(vocab_size, hidden_size, generator=rng))  # tall matrix
+        U, _ = torch.linalg.qr(torch.randn(
+            vocab_size, hidden_size, generator=rng))  # tall matrix
         # Step 2: V ∈ ℝ^{d × d}, orthonormal square
-        V, _ = torch.linalg.qr(torch.randn(hidden_size, hidden_size, generator=rng))  # square matrix
+        V, _ = torch.linalg.qr(torch.randn(
+            hidden_size, hidden_size, generator=rng))  # square matrix
         delta_mat = (U @ V.T)  # Shape: (V, d), full-rank, spectrally flat
         delta_mat = delta_mat * delta * (len(tokenizer)**0.5) / hs_norm
         delta_mat = delta_mat.to(unembedding.device).to(unembedding.dtype)
 
         augmented_unembedding = unembedding.clone() + delta_mat
         return cls(model, tokenizer, unembedding_param_name, augmented_unembedding, mode)
-
 
     @classmethod
     def from_augmented(cls, augmented_unembedding, model, tokenizer, unembedding_param_name, mode=Mode.Detect):
