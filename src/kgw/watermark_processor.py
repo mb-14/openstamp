@@ -37,6 +37,7 @@ class WatermarkBase:
         delta: float = 2.0,
         seeding_scheme: str = "simple_1",  # simple default, find more schemes in alternative_prf_schemes.py
         select_green_tokens: bool = True,  # should always be the default if not running in legacy mode
+        hash_key: int = 15485863,  # large prime, used to move seed away from low-entrop bit sequences
         device = None,
     ):
         # patch now that None could now maybe be passed as seeding_scheme
@@ -50,6 +51,7 @@ class WatermarkBase:
         # Watermark behavior:
         self.gamma = gamma
         self.delta = delta
+        self.hash_key = hash_key
         self.rng = None
         if device is not None:
             self.rng = torch.Generator(device=device)
@@ -60,7 +62,7 @@ class WatermarkBase:
 
     def _initialize_seeding_scheme(self, seeding_scheme: str) -> None:
         """Initialize all internal settings of the seeding strategy from a colloquial, "public" name for the scheme."""
-        self.prf_type, self.context_width, self.self_salt, self.hash_key = seeding_scheme_lookup(
+        self.prf_type, self.context_width, self.self_salt = seeding_scheme_lookup(
             seeding_scheme
         )
 

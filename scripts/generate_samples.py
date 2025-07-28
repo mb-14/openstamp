@@ -1,6 +1,7 @@
 import argparse
 from src.mbmark import MbMark, Mode
 from src.gaussmark import GaussMark
+from src.kgwmark import KGWMark
 from src.kgw_distilled import KGWDistilled
 import os
 import json
@@ -10,8 +11,8 @@ import matplotlib.pyplot as plt
 from tqdm.notebook import tqdm
 from datasets import load_dataset
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed
-from torch.utils.data import TensorDataset, DataLoader
+from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, LogitsProcessorList
+from torch.utils.data import TensorDataset
 
 
 def parse_args():
@@ -34,7 +35,11 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3", "distilled"])
+                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3", "noise", "distilled", "kgw", "kgw_llr"])
+    parser.add_argument('--distribution', type=str, default="symmetric_beta",
+                        choices=["symmetric_beta", "gaussian",
+                                 "uniform", "hidden_states", "truncated_normal", "low_rank"],
+                        help="Distribution to sample the offset matrix from")
     parser.add_argument('--dataset_path', type=str,
                         default="allenai/c4")
     parser.add_argument('--dataset_config_name', type=str,
@@ -44,8 +49,12 @@ def parse_args():
     parser.add_argument('--data_field', type=str,
                         default="text")
     parser.add_argument("--streaming", action="store_true", default=False)
-    parser.add_argument("--sigma", type=float, default=0.018,
+    parser.add_argument("--sigma", type=float, default=0.008,
                         help="Standard deviation for GaussMark")
+    parser.add_argument("--target_param_name", type=str,
+                        default="model.layers.27.mlp.up_proj.weight",)
+    parser.add_argument("--k", type=int, default=16,
+                        help="Number of clusters for the selector matrix in MbMark")
 
     args = parser.parse_args()
 
@@ -143,10 +152,14 @@ for batch in dataloader:
 human_text = human_text[:args.num_samples]
 prompt_text = prompt_text[:args.num_samples]
 full_human_text = full_human_text[:args.num_samples]
-
+watermarked_model = None
+watermarked_processor = None
 if args.watermark == "mb":
     # Load final weights into a torch tensor
-    final_weight = torch.tensor(output_data["final_matrix"])
+    dataset_suffix = "openwebtext"
+    model_suffix = args.model_name.split("/")[-1]
+    final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{args.k}.pth"
+    final_weight = torch.load(final_matrix_path)
     mb_mark = MbMark.mb(
         delta=args.delta,
         gamma=args.gamma,
@@ -158,28 +171,21 @@ if args.watermark == "mb":
         mode=Mode.Generate,
     )
     watermarked_model = mb_mark.model
-elif args.watermark == "mb2":
-    mb_mark = MbMark.mb2(
+elif args.watermark == "noise":
+    mb_mark = MbMark.noise_injection(
         delta=args.delta,
         seed=args.hash_key,
         model=model,
         unembedding_param_name="lm_head",
         tokenizer=tokenizer,
+        distribution=args.distribution,
         mode=Mode.Generate
     )
-    watermarked_model = mb_mark.model
-elif args.watermark == "mb3":
-    mb_mark = MbMark.mb3(
-        delta=args.delta,
-        seed=args.hash_key,
-        model=model,
-        unembedding_param_name="lm_head",
-        tokenizer=tokenizer,
-        mode=Mode.Generate
-    )
+
     watermarked_model = mb_mark.model
 elif args.watermark == "gaussmark":
-    target_param_name = "model.layers.20.mlp.up_proj.weight"
+    # target_param_name = "model.layers.20.mlp.up_proj.weight"
+    target_param_name = args.target_param_name
     sigma = args.sigma
     gaussmark = GaussMark(sigma=sigma, seed=args.hash_key,
                           target_param_name=target_param_name, tokenizer=tokenizer, model=model)
@@ -188,6 +194,11 @@ elif args.watermark == "distilled":
     watermark = KGWDistilled(model=model, tokenizer=tokenizer, gamma=0.25,
                              seeding_scheme="simple_1", kgw_device="cpu")
     watermarked_model = watermark.model
+elif args.watermark == "kgw" or args.watermark == "kgw_llr":
+    kgw_device = device
+    watermark = KGWMark(model=model, tokenizer=tokenizer, gamma=args.gamma,
+                        delta=args.delta, hash_key=args.hash_key, kgw_device=kgw_device)
+    watermarked_processor = watermark.watermark
 
 model_text = []
 full_model_text = []
@@ -195,17 +206,32 @@ for batch in tqdm(prompts):
     if len(model_text) >= args.num_samples:
         break
     with torch.no_grad():
-        outputs = watermarked_model.generate(
-            input_ids=batch["input_ids"],
-            attention_mask=batch["attention_mask"],
-            top_p=args.top_p,
-            top_k=args.top_k,
-            max_new_tokens=args.max_tokens,
-            min_new_tokens=args.max_tokens,
-            temperature=args.temperature,
-            do_sample=args.multinomial,
-            pad_token_id=tokenizer.eos_token_id
-        )
+        if watermarked_model is not None:
+            outputs = watermarked_model.generate(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                top_p=args.top_p,
+                top_k=args.top_k,
+                max_new_tokens=args.max_tokens,
+                min_new_tokens=args.max_tokens,
+                temperature=args.temperature,
+                do_sample=args.multinomial,
+                pad_token_id=tokenizer.eos_token_id
+            )
+        elif watermarked_processor is not None:
+            outputs = model.generate(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                top_p=args.top_p,
+                top_k=args.top_k,
+                max_new_tokens=args.max_tokens,
+                min_new_tokens=args.max_tokens,
+                temperature=args.temperature,
+                do_sample=args.multinomial,
+                pad_token_id=tokenizer.eos_token_id,
+                logits_processor=LogitsProcessorList([watermarked_processor])
+            )
+
         n_input_tokens = batch["input_ids"].shape[1]
         model_text.extend(tokenizer.batch_decode(
             outputs[:, n_input_tokens:], skip_special_tokens=True))
@@ -241,17 +267,25 @@ elif args.watermark == "gaussmark":
         "hash_key": args.hash_key,
         "target_param_name": target_param_name
     }
-elif args.watermark in ["mb2", "mb3"]:
+elif args.watermark == "noise":
     config = {
         "hash_key": args.hash_key,
-        "unembedding_param_name": "lm_head",
+        "distribution": args.distribution,
         "delta": args.delta,
+        "unembedding_param_name": "lm_head",
     }
 elif args.watermark == "distilled":
     config = {
         "gamma": 0.25,
         "seeding_scheme": "simple_1",
         "kgw_device": "cpu",
+    }
+elif args.watermark == "kgw" or args.watermark == "kgw_llr":
+    config = {
+        "hash_key": args.hash_key,
+        "kgw_device": str(kgw_device),
+        "gamma": args.gamma,
+        "delta": args.delta,
     }
 
 sample_data = {

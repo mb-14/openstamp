@@ -24,7 +24,6 @@ def seeding_scheme_lookup(seeding_scheme: str):
         prf_type = "additive_prf"
         context_width = 1
         self_salt = False
-        hash_key = 15485863
     elif seeding_scheme == "key_42":
         prf_type = "additive_prf"
         context_width = 1
@@ -34,22 +33,18 @@ def seeding_scheme_lookup(seeding_scheme: str):
         prf_type = "constant_prf"
         context_width = 1
         self_salt = False
-        hash_key = 15485863
     elif seeding_scheme == "simple_2":
         prf_type = "additive_prf"
         context_width = 2
         self_salt = False
-        hash_key = 15485863
     elif seeding_scheme == "algorithm-3" or seeding_scheme == "selfhash":
         prf_type = "anchored_minhash_prf"
         context_width = 4
         self_salt = True
-        hash_key = 15485863
     elif seeding_scheme == "skipgram":
         prf_type = "skipgram_prf"
         context_width = 5
         self_salt = False
-        hash_key = 15485863
     elif seeding_scheme.startswith(
         "ff"
     ):  # freeform seeding scheme API - only use for experimenting
@@ -60,13 +55,11 @@ def seeding_scheme_lookup(seeding_scheme: str):
         self_salt = split_scheme[3] == "True"
         if len(split_scheme) == 5:
             hash_key = int(split_scheme[4])
-        else:
-            hash_key = 15485863
     else:
         raise ValueError(f"Invalid seeding scheme name {seeding_scheme} given. Try  'simple_1'?")
 
     assert prf_type in prf_lookup.keys()
-    return prf_type, context_width, self_salt, hash_key
+    return prf_type, context_width, self_salt
 
 
 def multiplicative_prf(input_ids: torch.LongTensor, salt_key: int) -> int:

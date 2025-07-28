@@ -2,6 +2,7 @@ import torch
 from functools import cached_property
 import scipy.stats
 
+
 class GaussMark:
     def __init__(self, sigma, seed, target_param_name, tokenizer, model):
         """
@@ -48,20 +49,30 @@ class GaussMark:
         with torch.enable_grad():
             # Tokenize full batch
             inputs = self.tokenizer(
-                batch_text, padding=True, return_tensors="pt").to(self.model.device)
-            input_ids = inputs.input_ids
+                batch_text, padding=True, return_tensors="pt"
+            ).to(self.model.device)
+            input_ids = inputs.input_ids  # (B, T)
+            attention_mask = inputs.attention_mask  # (B, T)
 
             # Forward pass
             logits = self.model(**inputs).logits  # (B, T, V)
             log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
 
             # Next-token predictions
-            shifted_input_ids = input_ids[:, 1:]              # (B, T-1)
-            shifted_log_probs = log_probs[:, :-1, :]          # (B, T-1, V)
+            shifted_input_ids = input_ids[:, 2:]              # (B, T-1)
+            shifted_log_probs = log_probs[:, 1:-1, :]          # (B, T-1, V)
             log_probs_seq = torch.gather(
                 shifted_log_probs, 2, shifted_input_ids.unsqueeze(-1)
             ).squeeze(-1)                                     # (B, T-1)
 
+            # Build token mask (BOS and padding tokens ignored)
+            shifted_attention_mask = attention_mask[:, 2:]    # (B, T-1)
+            token_mask = (shifted_attention_mask == 1)        # (B, T-1)
+
+            # Set log probs of masked-out tokens to 0
+            log_probs_seq = log_probs_seq * token_mask
+
+            # Compute log-likelihoods for each sequence
             log_likelihoods = log_probs_seq.sum(dim=-1)       # (B,)
 
             # Locate the parameter to extract gradients from
@@ -77,7 +88,7 @@ class GaussMark:
                 grad_i = torch.autograd.grad(
                     outputs=log_likelihoods[i],
                     inputs=weight,
-                    retain_graph=True,  # <-- crucial for reusing the graph
+                    retain_graph=True,
                     create_graph=False,
                     only_inputs=True,
                     allow_unused=True
@@ -85,7 +96,6 @@ class GaussMark:
 
                 if grad_i is None:
                     raise RuntimeError(f"Gradient is None for sample {i}.")
-                # Detach to avoid holding graph refs
                 grads.append(grad_i.view(-1).detach())
 
             grads = torch.stack(grads, dim=0)  # (B, D)
