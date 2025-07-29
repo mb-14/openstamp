@@ -63,6 +63,7 @@ def parse_args():
 
     return args
 
+
 args = parse_args()
 print(args)
 
@@ -88,7 +89,7 @@ if args.watermark == "rl":
         if hasattr(model_config, key):
             setattr(model_config, key, 0.0)
     model = AutoModelForCausalLM.from_pretrained(args.model_name,
-                                                 config=model_config, device_map="auto").train()
+                                                 config=model_config, device_map="auto", torch_dtype=torch.bfloat16).train()
 else:
     model = AutoModelForCausalLM.from_pretrained(args.model_name,
                                                  device_map="auto", torch_dtype=torch.bfloat16)
