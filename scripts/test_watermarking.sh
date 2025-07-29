@@ -114,9 +114,12 @@ elif [ "$watermark" == "mb" ]; then
   output_file="${output_dir}/output_align=${align}_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
 elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ]; then
   output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}.json"
-elif [ "$watermark" == "mb2" ] || [ "$watermark" == "mb3" ]; then
-  output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_watermark=${watermark}_dataset=${dataset}.json"
-elif [ "$watermark" == "noise" ]; then
+elif [ "$watermark" == "rl" ]; then
+  output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}.json"
+  base_dir="/pool.ssd/users/miroojin/watermarking_rl"
+  rl_model_path="${base_dir}/c4_llama2-7b_llama2-1.1b_b4_step2500_dosample"
+elif [ "$watermark" == "noise" ]; thenelif [ "$watermark" == "noise" ]; then
+
   output_file="${output_dir}/output_seed=${SEED}_distribution=${distribution}_delta=${DELTA}_watermark=${watermark}_dataset=${dataset}.json"
 elif [ "$watermark" == "distilled" ]; then
   output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}.json"
@@ -162,7 +165,8 @@ if [ "$generate" -eq 1 ]; then
     --sigma $sigma \
     --k $K \
     --target_param_name $target_param_name \
-    --distribution $distribution &>"$log_dir/generate_${timestamp}.log"
+    --distribution $distribution \
+    --rl_model_path $rl_model_path &>"$log_dir/generate_${timestamp}.log"
 fi
 
 # Generate paraphrases if PARAPHRASE is set to 1

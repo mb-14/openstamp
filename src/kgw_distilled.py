@@ -3,10 +3,11 @@ import torch
 
 
 class KGWDistilled:
-    def __init__(self, model, gamma, seeding_scheme, kgw_device, tokenizer):
-        self.model = model
+    def __init__(self, gamma, seeding_scheme, kgw_device, tokenizer, model=None):
         self.tokenizer = tokenizer
-        self.model.eval()
+        if model is not None:
+            self.model = model
+            self.model.eval()
         self.detector = WatermarkDetector(
             device=kgw_device,
             tokenizer=tokenizer,

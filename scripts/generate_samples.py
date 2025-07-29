@@ -11,8 +11,9 @@ import matplotlib.pyplot as plt
 from tqdm.notebook import tqdm
 from datasets import load_dataset
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, LogitsProcessorList
+from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, LogitsProcessorList, AutoConfig
 from torch.utils.data import TensorDataset
+from src.rl_watermark.ds_utils import convert_linear_layer_to_lora
 
 
 def parse_args():
@@ -35,7 +36,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "gaussmark", "mb2", "mb3", "noise", "distilled", "kgw", "kgw_llr"])
+                        default="mb", choices=["mb", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl"])
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
@@ -55,11 +56,12 @@ def parse_args():
                         default="model.layers.27.mlp.up_proj.weight",)
     parser.add_argument("--k", type=int, default=16,
                         help="Number of clusters for the selector matrix in MbMark")
+    parser.add_argument("--rl_model_path", type=str,
+                        help="Local path to the RL model", default=None)
 
     args = parser.parse_args()
 
     return args
-
 
 args = parse_args()
 print(args)
@@ -79,12 +81,20 @@ tokenizer = AutoTokenizer.from_pretrained(
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(args.model_name,
-                                             device_map="auto", torch_dtype=torch.bfloat16)
-model.eval()
+
+if args.watermark == "rl":
+    model_config = AutoConfig.from_pretrained(args.model_name)
+    for key in ('dropout', 'attention_dropout', 'hidden_dropout', 'activation_dropout'):
+        if hasattr(model_config, key):
+            setattr(model_config, key, 0.0)
+    model = AutoModelForCausalLM.from_pretrained(args.model_name,
+                                                 config=model_config, device_map="auto").train()
+else:
+    model = AutoModelForCausalLM.from_pretrained(args.model_name,
+                                                 device_map="auto", torch_dtype=torch.bfloat16)
+    model.eval()
 
 device = model.device
-
 
 prompt_dataset = load_dataset(
     args.dataset_path, args.dataset_config_name, split=args.dataset_split, trust_remote_code=True, streaming=args.streaming)
@@ -154,6 +164,8 @@ prompt_text = prompt_text[:args.num_samples]
 full_human_text = full_human_text[:args.num_samples]
 watermarked_model = None
 watermarked_processor = None
+temperature = args.temperature
+
 if args.watermark == "mb":
     # Load final weights into a torch tensor
     dataset_suffix = "openwebtext"
@@ -199,6 +211,14 @@ elif args.watermark == "kgw" or args.watermark == "kgw_llr":
     watermark = KGWMark(model=model, tokenizer=tokenizer, gamma=args.gamma,
                         delta=args.delta, hash_key=args.hash_key, kgw_device=kgw_device)
     watermarked_processor = watermark.watermark
+elif args.watermark == "rl":
+    watermarked_model = convert_linear_layer_to_lora(
+        model, part_module_name='decoder.layers.', lora_dim=128)
+    watermarked_model.load_state_dict(torch.load(
+        args.rl_model_path+"/pytorch_model.bin", map_location='cpu'))
+    watermarked_model = watermarked_model.cuda()
+    watermarked_model.eval()
+    temperature = 0.95
 
 model_text = []
 full_model_text = []
@@ -206,27 +226,30 @@ for batch in tqdm(prompts):
     if len(model_text) >= args.num_samples:
         break
     with torch.no_grad():
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
         if watermarked_model is not None:
+
             outputs = watermarked_model.generate(
-                input_ids=batch["input_ids"],
-                attention_mask=batch["attention_mask"],
+                input_ids=input_ids,
+                attention_mask=attention_mask,
                 top_p=args.top_p,
                 top_k=args.top_k,
                 max_new_tokens=args.max_tokens,
                 min_new_tokens=args.max_tokens,
-                temperature=args.temperature,
+                temperature=temperature,
                 do_sample=args.multinomial,
                 pad_token_id=tokenizer.eos_token_id
             )
         elif watermarked_processor is not None:
             outputs = model.generate(
-                input_ids=batch["input_ids"],
-                attention_mask=batch["attention_mask"],
+                input_ids=input_ids,
+                attention_mask=attention_mask,
                 top_p=args.top_p,
                 top_k=args.top_k,
                 max_new_tokens=args.max_tokens,
                 min_new_tokens=args.max_tokens,
-                temperature=args.temperature,
+                temperature=temperature,
                 do_sample=args.multinomial,
                 pad_token_id=tokenizer.eos_token_id,
                 logits_processor=LogitsProcessorList([watermarked_processor])
@@ -287,12 +310,16 @@ elif args.watermark == "kgw" or args.watermark == "kgw_llr":
         "gamma": args.gamma,
         "delta": args.delta,
     }
+elif args.watermark == "rl":
+    config = {
+        "rl_model_path": args.rl_model_path,
+    }
 
 sample_data = {
     "samples": data,
     "model_name": args.model_name,
     "num_samples": args.num_samples,
-    "temperature": args.temperature,
+    "temperature": temperature,
     "watermark": args.watermark,
     "config": config,
     "top_k": args.top_k,

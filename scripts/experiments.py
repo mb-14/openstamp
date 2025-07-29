@@ -9,7 +9,7 @@ import multiprocessing
 
 # Configuration
 seeds = [15485863, 12997009, 22983996]
-# seeds = [15485863]  # For debugging, use a single seed
+seeds = [15485863]  # For debugging, use a single seed
 align = [0]
 k = [235]
 gamma = [0.25]
@@ -37,9 +37,10 @@ gaussmark_configs = [
 ]
 
 gaussmark_configs = [
-    ("lm_head.weight", 0.005),
     ("model.layers.27.mlp.up_proj.weight", 0.025)
 ]  # For debugging, use a single gaussmark config
+
+
 
 gpus = [1, 2, 3]
 max_workers = len(gpus)
@@ -72,13 +73,13 @@ def run_job(params_and_locks):
             '--seed', str(seed),
             '--num_samples', '500',
             '--align', str(a),
-            '--paraphrase', '1',
+            '--paraphrase', '0',
             '--train', '0',
-            '--generate', '0',
-            '--eval_ppl', '0',
+            '--generate', '1',
+            '--eval_ppl', '1',
             '--dataset', dataset,
             '--distribution', distribution,
-            '--watermark', 'gaussmark',
+            '--watermark', 'rl',
             '--model', model,
             '--output_dir', output_dir,
             '--target_param_name', gaussmark_layer,

@@ -3,10 +3,11 @@ import torch
 
 
 class KGWMark:
-    def __init__(self, model, gamma, delta, hash_key, kgw_device, tokenizer, llr_detection=False):
+    def __init__(self, gamma, delta, hash_key, kgw_device, tokenizer, model=None, llr_detection=False):
         self.model = model
         self.tokenizer = tokenizer
-        self.model.eval()
+        if self.model is not None:
+            self.model.eval()
         self.detector = WatermarkDetector(
             device=kgw_device,
             tokenizer=tokenizer,
