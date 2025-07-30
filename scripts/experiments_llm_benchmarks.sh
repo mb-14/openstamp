@@ -10,9 +10,23 @@ set -e  # Optional: exit immediately if a command fails
 # "meta-llama/Llama-2-7b-hf")
 # "mistralai/Mistral-7B-v0.3") 
 
-models=("$@")
-# datasets=(super-glue-lm-eval-v1)
-datasets=(arc_challenge hellaswag)
+models=("meta-llama/Llama-2-7b-hf")
+models=(
+    "meta-llama/Llama-2-7b-hf" \
+    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-gaussmark-sigma0.04-seed15485863" \
+    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-gaussmark-sigma0.04-seed12997009" \
+    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-gaussmark-sigma0.04-seed22983996" \
+    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-greenlist-bias-k235-seed15485863" \
+    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-greenlist-bias-k235-seed12997009" \
+    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-greenlist-bias-k235-seed22983996" \
+    "cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"
+)
+
+# models = ["mbakshi1094/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta1.25"]
+# models=("cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2")
+
+datasets=(super-glue-lm-eval-v1)
+# datasets=(arc_challenge hellaswag)
 
 #* Test the performance of models on different benchmarks
 for dataset in "${datasets[@]}"; do

@@ -8,13 +8,13 @@ PARAPHRASE=0
 SEED=15485863
 watermark="mb"
 generate=1
-align=0
-train=0
 dataset="realnewslike"
 model="meta-llama/Llama-2-7b-hf"
 sigma=0.018
 eval_ppl=1
 target_param_name="lm_head.weight"
+K=128
+rl_model_path="/"
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -58,14 +58,6 @@ while [[ "$#" -gt 0 ]]; do
     SEED="$2"
     shift
     ;;
-  --align)
-    align="$2"
-    shift
-    ;;
-  --train)
-    train="$2"
-    shift
-    ;;
   --dataset)
     dataset="$2"
     shift
@@ -106,20 +98,19 @@ mkdir -p "$log_dir"
 
 set -x
 
-timestamp=$(date +"%Y%m%d_%H%M%S")
+timestamp=$(date +"%Y%m%d_%H%M%S_%3N")
 # if watermark is gaussmark, set the output file name accordingly
 if [ "$watermark" == "gaussmark" ]; then
   output_file="${output_dir}/output_seed=${SEED}_sigma=${sigma}_watermark=${watermark}_dataset=${dataset}.json"
 elif [ "$watermark" == "mb" ]; then
-  output_file="${output_dir}/output_align=${align}_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
+  output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
 elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ]; then
   output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}.json"
 elif [ "$watermark" == "rl" ]; then
   output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}.json"
   base_dir="/pool.ssd/users/miroojin/watermarking_rl"
   rl_model_path="${base_dir}/c4_llama2-7b_llama2-1.1b_b4_step2500_dosample"
-elif [ "$watermark" == "noise" ]; thenelif [ "$watermark" == "noise" ]; then
-
+elif [ "$watermark" == "noise" ]; then
   output_file="${output_dir}/output_seed=${SEED}_distribution=${distribution}_delta=${DELTA}_watermark=${watermark}_dataset=${dataset}.json"
 elif [ "$watermark" == "distilled" ]; then
   output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}.json"
@@ -128,35 +119,35 @@ else
   exit 1
 fi
 
-if [ "$dataset" = "realnewslike" ]; then
-  dataset_args="--dataset_path allenai/c4 \
-    --dataset_config_name realnewslike \
-    --dataset_split validation \
-    --data_field text"
-elif [ "$dataset" = "wikipedia" ]; then
-  dataset_args="--dataset_path wikipedia \
-    --dataset_config_name 20220301.en \
-    --dataset_split train \
-    --data_field text \
-    --streaming"
-elif [ "$dataset" = "arxiv" ]; then
-  dataset_args="--dataset_path armanc/scientific_papers \
-    --dataset_config_name arxiv \
-    --dataset_split test \
-    --data_field article"
-elif [ "$dataset" = "booksum" ]; then
-  dataset_args="--dataset_path kmfoda/booksum \
-    --dataset_split test \
-    --data_field chapter"
-else
-  echo "Unsupported dataset ${dataset}."
-  exit 1
-fi
+# if [ "$dataset" = "realnewslike" ]; then
+#   dataset_args="--dataset_path allenai/c4 \
+#     --dataset_config_name realnewslike \
+#     --dataset_split validation \
+#     --data_field text"
+# elif [ "$dataset" = "wikipedia" ]; then
+#   dataset_args="--dataset_path wikipedia \
+#     --dataset_config_name 20220301.en \
+#     --dataset_split train \
+#     --data_field text \
+#     --streaming"
+# elif [ "$dataset" = "arxiv" ]; then
+#   dataset_args="--dataset_path armanc/scientific_papers \
+#     --dataset_config_name arxiv \
+#     --dataset_split test \
+#     --data_field article"
+# elif [ "$dataset" = "booksum" ]; then
+#   dataset_args="--dataset_path kmfoda/booksum \
+#     --dataset_split test \
+#     --data_field chapter"
+# else
+#   echo "Unsupported dataset ${dataset}."
+#   exit 1
+# fi
 
 if [ "$generate" -eq 1 ]; then
   python -m scripts.generate_samples --num_samples $NUM_SAMPLES \
     --output_file $output_file \
-    ${dataset_args} \
+    --dataset $dataset \
     --delta $DELTA \
     --gamma $GAMMA \
     --hash_key $SEED \
@@ -173,17 +164,12 @@ fi
 if [ "$PARAPHRASE" -eq 1 ]; then
   python scripts/paraphrase.py \
     --output_file $output_file \
-    --lex 60 --order 0
+    --lex 60 --order 0 &>"$log_dir/paraphrase_l60_${timestamp}.log"
 
   python scripts/paraphrase.py \
     --output_file $output_file \
-    --lex 20 --order 0
+    --lex 20 --order 0 &>"$log_dir/paraphrase_l20_${timestamp}.log"
 fi
-
-# # Compute base statistics only if watermark is mb
-# if [ "$watermark" == "mb" ]; then
-#   MODEL=$model OUTPUT_FILE=$output_file papermill notebooks/compute_base_statistics.ipynb "$log_dir/bs_$timestamp.ipynb"
-# fi
 
 MODEL=$model K=$K OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$timestamp.ipynb"
 

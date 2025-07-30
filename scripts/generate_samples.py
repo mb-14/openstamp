@@ -14,6 +14,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, LogitsProcessorList, AutoConfig
 from torch.utils.data import TensorDataset
 from src.rl_watermark.ds_utils import convert_linear_layer_to_lora
+import random
 
 
 def parse_args():
@@ -41,15 +42,9 @@ def parse_args():
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
                         help="Distribution to sample the offset matrix from")
-    parser.add_argument('--dataset_path', type=str,
-                        default="allenai/c4")
-    parser.add_argument('--dataset_config_name', type=str,
-                        default=None)
-    parser.add_argument('--dataset_split', type=str,
-                        default="validation")
-    parser.add_argument('--data_field', type=str,
-                        default="text")
-    parser.add_argument("--streaming", action="store_true", default=False)
+    parser.add_argument('--dataset', type=str,
+                        default="realnewslike", choices=["realnewslike", "wikipedia", "arxiv", "booksum", "combined"])
+
     parser.add_argument("--sigma", type=float, default=0.008,
                         help="Standard deviation for GaussMark")
     parser.add_argument("--target_param_name", type=str,
@@ -63,6 +58,37 @@ def parse_args():
 
     return args
 
+
+dataset_registry = {
+    "realnewslike": {
+        "path": "allenai/c4",
+        "config": "realnewslike",
+        "split": "validation",
+        "data_field": "text",
+        "streaming": False,
+    },
+    "wikipedia": {
+        "path": "wikipedia",
+        "config": "20220301.en",
+        "split": "train",
+        "data_field": "text",
+        "streaming": True,
+    },
+    "arxiv": {
+        "path": "armanc/scientific_papers",
+        "config": "arxiv",
+        "split": "test",
+        "data_field": "article",
+        "streaming": False,
+    },
+    "booksum": {
+        "path": "kmfoda/booksum",
+        "config": None,
+        "split": "test",
+        "data_field": "chapter",
+        "streaming": False,
+    },
+}
 
 args = parse_args()
 print(args)
@@ -96,52 +122,88 @@ else:
     model.eval()
 
 device = model.device
+if args.dataset == "combined":
+    selected_keys = ["realnewslike", "wikipedia", "arxiv", "booksum"]
+else:
+    selected_keys = [args.dataset]
 
-prompt_dataset = load_dataset(
-    args.dataset_path, args.dataset_config_name, split=args.dataset_split, trust_remote_code=True, streaming=args.streaming)
-
-if args.dataset_path == "kmfoda/booksum":
-    # Remove all columns except for the data_field
-    prompt_dataset = prompt_dataset.remove_columns(
-        [col for col in prompt_dataset.column_names if col != args.data_field])
-
-# Shuffle the dataset with a fixed seed
-prompt_dataset = prompt_dataset.shuffle(seed=args.seed)
+samples_per_dataset = args.num_samples // len(selected_keys)
 min_length = args.prompt_length + args.max_tokens
 
 
-def filter_length(example):
-    return len(tokenizer(example[args.data_field], truncation=True, max_length=min_length)["input_ids"]) >= min_length
+def filter_length(example, field):
+    return len(tokenizer(example[field], truncation=True, max_length=min_length)["input_ids"]) >= min_length
 
 
-def encode(examples):
+def encode(example, field):
     trunc_tokens = tokenizer(
-        examples[args.data_field],
+        example[field],
         truncation=True,
         padding=True,
         max_length=min_length,
         return_tensors="pt"
     ).to(device)
-    examples["text"] = tokenizer.batch_decode(
-        trunc_tokens["input_ids"], skip_special_tokens=True)
+    text = tokenizer.batch_decode(
+        trunc_tokens["input_ids"], skip_special_tokens=True)[0]
+
     prompt = tokenizer(
-        examples["text"], truncation=True, padding=True, max_length=args.prompt_length, return_tensors="pt",
+        text,
+        truncation=True,
+        padding=True,
+        max_length=args.prompt_length,
+        return_tensors="pt"
     ).to(device)
-    examples["prompt_text"] = tokenizer.batch_decode(
-        prompt["input_ids"], skip_special_tokens=True)
-    examples["input_ids"] = prompt["input_ids"]
-    examples["attention_mask"] = prompt["attention_mask"]
-    examples["text_completion"] = tokenizer.batch_decode(
-        trunc_tokens["input_ids"][:,
-                                  args.prompt_length:], skip_special_tokens=True
+
+    return {
+        "text": text,
+        "prompt_text": tokenizer.batch_decode(prompt["input_ids"], skip_special_tokens=True)[0],
+        "input_ids": prompt["input_ids"].squeeze(0),
+        "attention_mask": prompt["attention_mask"].squeeze(0),
+        "text_completion": tokenizer.batch_decode(
+            trunc_tokens["input_ids"][:, args.prompt_length:], skip_special_tokens=True)[0],
+    }
+
+
+all_samples = []
+
+for key in selected_keys:
+    spec = dataset_registry[key]
+
+    # Load dataset
+    dataset = load_dataset(
+        spec["path"],
+        spec["config"],
+        split=spec["split"],
+        streaming=spec["streaming"],
+        trust_remote_code=True,
     )
-    return examples
 
+    # Reduce to necessary field (booksum special case)
+    if key == "booksum":
+        dataset = dataset.remove_columns(
+            [col for col in dataset.column_names if col != spec["data_field"]])
 
-prompt_dataset = prompt_dataset.filter(filter_length)
-prompt_dataset = prompt_dataset.map(encode, batched=True)
+    # Shuffle with buffer
+    dataset = dataset.shuffle(seed=args.seed)
 
-dataloader = torch.utils.data.DataLoader(prompt_dataset, batch_size=32)
+    dataset = dataset.filter(lambda x: filter_length(x, spec["data_field"]))
+
+    # Collect samples
+    sample_buffer = []
+    for example in dataset:
+        encoded = encode(example, spec["data_field"])
+        sample_buffer.append(encoded)
+        if len(sample_buffer) >= samples_per_dataset:
+            break
+
+    all_samples.extend(sample_buffer)
+
+# --- Final shuffle with local RNG ---
+
+combined_dataset = Dataset.from_list(all_samples)
+
+dataloader = torch.utils.data.DataLoader(combined_dataset, batch_size=32)
+
 
 prompts = []
 human_text = []
@@ -329,7 +391,7 @@ sample_data = {
     "prompt_length": args.prompt_length,
     "max_tokens": args.max_tokens,
     "vocab_size": len(tokenizer),
-    "dataset_name": "{}-{}".format(args.dataset_path, args.dataset_config_name),
+    "dataset_name": args.dataset,
 }
 
 

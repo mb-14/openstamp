@@ -1,0 +1,48 @@
+# =============================================================================
+# Matplotlib Style File for AAAI Publication Quality Figures
+# =============================================================================
+# To use this file, place it in the same directory as your Python script
+# and add the following line to your script before creating any plots:
+#   import matplotlib.pyplot as plt
+#   plt.style.use('./aaai.mplstyle')
+# =============================================================================
+
+# --- Font Settings ---
+# Use a serif font like Times New Roman for a classic academic look.
+font.family         : serif
+font.serif          : Times New Roman, Computer Modern Roman
+font.size           : 10
+
+# --- Axes Settings ---
+# Controls the appearance of the plot axes, labels, and title.
+axes.labelsize      : 10
+axes.titlesize      : 12
+axes.linewidth      : 0.8  # Thinner lines for a cleaner look
+
+# --- Tick Settings ---
+# Controls the appearance of the major and minor ticks on the axes.
+xtick.labelsize     : 8
+ytick.labelsize     : 8
+xtick.major.size    : 3.5
+xtick.minor.size    : 2
+ytick.major.size    : 3.5
+ytick.minor.size    : 2
+xtick.direction     : in   # Ticks point inward
+ytick.direction     : in
+
+# --- Legend Settings ---
+# A frameless legend integrates more cleanly into the plot.
+legend.fontsize       : 8
+legend.frameon        : False
+legend.numpoints      : 1    # Number of marker points in the legend entry
+legend.handletextpad  : 0.5
+legend.handlelength   : 1.5
+legend.columnspacing  : 1.2
+
+# --- Figure Settings ---
+# These settings are optimized for a two-column paper format.
+figure.figsize      : 3.4, 2.8  # Width, Height in inches
+figure.dpi          : 300       # Resolution for display
+savefig.dpi         : 300       # Resolution for saved files
+savefig.format      : pdf       # Use vector format for papers
+savefig.bbox        : tight     # Minimize whitespace around the figure

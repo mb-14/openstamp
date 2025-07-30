@@ -34,16 +34,8 @@ parser.add_argument(
     "--watermark_type",
     type=str,
     default="mb",
-    choices=["mb", "mb2", "mb3", "gaussmark", "distilled"],
+    choices=["mb", "noise", "gaussmark", "distilled"],
     help="Type of watermark to be used",
-)
-
-# Add argument for number of clusters which is a required parameter if watermark_type = mb
-parser.add_argument(
-    "--num_clusters",
-    type=int,
-    default=4,
-    help="Number of clusters to be used for mb watermarking",
 )
 
 
@@ -81,7 +73,7 @@ base_model = AutoModelForCausalLM.from_pretrained(
 
 output_dir = f"output/{model_suffix}/{args.output_dir}"
 
-if args.watermark_type == "mb" or args.watermark_type == "mb2":
+if args.watermark_type == "mb" or args.watermark_type == "noise":
     finetuning_type = "targeted" if args.targeted else "full"
 else:
     finetuning_type = "full"
@@ -97,14 +89,14 @@ if args.watermark_type == "distilled":
         "seeding_scheme": "simple_1"
     }
 elif args.watermark_type == "mb":
-    final_weight_file = f"saved_models/{dataset_suffix}_{model_suffix}/final_weights_k{args.num_clusters}.json"
-    with open(final_weight_file, "r") as f:
-        json_data = json.load(f)
-        final_weight = torch.tensor(json_data["final_matrix"])
-
+    k = 235
+    final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k235.pth"
+    final_weight = torch.load(final_matrix_path)
+    delta = 1.2
+    gamma = 0.25
     watermark = MbMark.mb(
-        delta=1.0,
-        gamma=0.3,
+        delta=delta,
+        gamma=gamma,
         seed=seed,
         final_weight=final_weight,
         model=base_model,
@@ -113,42 +105,32 @@ elif args.watermark_type == "mb":
         mode=Mode.Generate
     )
     config = {
-        "delta": 1.0,
-        "gamma": 0.3,
+        "delta": delta,
+        "gamma": gamma,
         "num_clusters": final_weight.shape[0],
         "seed": seed,
-        "final_weight_file": final_weight_file,
     }
 
-elif args.watermark_type == "mb2":
-    watermark = MbMark.mb2(
-        delta=0.56,
+elif args.watermark_type == "noise":
+    distribution = "gaussian"  # or "uniform"
+    delta = 1.0
+    watermark = MbMark.noise_injection(
+        delta=delta,
         seed=seed,
         model=base_model,
         tokenizer=tokenizer,
         unembedding_param_name="lm_head",
+        distribution=distribution,
         mode=Mode.Generate
     )
     config = {
         "seed": seed,
-        "delta": 0.56,
-    }
-elif args.watermark_type == "mb3":
-    watermark = MbMark.mb3(
-        delta=0.56,
-        seed=seed,
-        model=base_model,
-        tokenizer=tokenizer,
-        unembedding_param_name="lm_head",
-        mode=Mode.Generate
-    )
-    config = {
-        "seed": seed,
-        "delta": 0.56,
+        "delta": delta,
+        "distribution": distribution,
     }
 elif args.watermark_type == "gaussmark":
     param = "model.layers.27.mlp.up_proj.weight"
-    sigma = 0.04
+    sigma = 0.045
     watermark = GaussMark(sigma=sigma, seed=seed,
                           target_param_name=param, tokenizer=tokenizer, model=base_model)
 
@@ -163,7 +145,7 @@ watermarked_model = watermark.model
 
 
 os.makedirs(output_dir, exist_ok=True)
-max_steps = 4000
+max_steps = 3000
 warmup_steps = 500
 learning_rate = 1e-5
 batch_size = 32
