@@ -41,12 +41,16 @@ class MbMark:
         "meta-llama/Llama-2-7b-hf": 74.32,
     }
 
-    def __init__(self, model, tokenizer, unembedding_param_name, augmented_unembedding, mode, delta=None):
+    def __init__(self, model, tokenizer, unembedding_param_name, augmented_unembedding, mode, binom_detect=False, delta=None, gamma=None, final_weight=None, watermarking_matrix=None):
         self.model = model
         self.tokenizer = tokenizer
         self.unembedding = getattr(model, unembedding_param_name).weight.data
         self.augmented_unembedding = augmented_unembedding
         self.delta = delta
+        self.gamma = gamma
+        self.final_weight = final_weight
+        self.binom_detect = binom_detect
+        self.watermarking_matrix = watermarking_matrix
 
         if mode == Mode.Detect:
             self.cluster_detector = HiddenStateExtractor(
@@ -70,7 +74,7 @@ class MbMark:
         return samples.to(device)
 
     @classmethod
-    def mb(cls, delta, gamma, seed, final_weight, model, tokenizer, unembedding_param_name, mode=Mode.Detect):
+    def mb(cls, delta, gamma, seed, final_weight, model, tokenizer, unembedding_param_name, binom_detect=False, mode=Mode.Detect):
         unembedding = getattr(model, unembedding_param_name).weight.data
         vocab_size = len(tokenizer)
 
@@ -86,7 +90,7 @@ class MbMark:
                      final_weight).to(unembedding.device).to(unembedding.dtype)
         augmented_unembedding = unembedding.clone() + delta_mat
 
-        return cls(model, tokenizer, unembedding_param_name, augmented_unembedding, mode, delta=delta)
+        return cls(model, tokenizer, unembedding_param_name, augmented_unembedding, mode, binom_detect, delta=delta, gamma=gamma, final_weight=final_weight, watermarking_matrix=watermark_matrix)
 
     @classmethod
     def noise_injection(cls, delta, seed, model, tokenizer, unembedding_param_name, distribution, mode=Mode.Detect):
@@ -337,48 +341,50 @@ class MbMark:
         hessian = (L_p - 2 * L_0 + L_m) / (h ** 2)
         return hessian.cpu().float()
 
-    # def binomial_count(self, hidden_states, inputs):
-    #     batch_size = inputs.input_ids.shape[0]
-    #     selectors = torch.matmul(hidden_states.to(
-    #         self.final_weight.dtype), self.final_weight.T)
-    #     clusters = torch.argmax(selectors, dim=-1)
+    def binomial_count(self, hidden_states, inputs):
+        batch_size = inputs.input_ids.shape[0]
+        hidden_states = hidden_states.to(
+            self.final_weight.device).to(self.final_weight.dtype)
+        selectors = torch.matmul(hidden_states, self.final_weight.T)
+        clusters = torch.argmax(selectors, dim=-1)
+        vocab_size = self.watermarking_matrix.shape[0]
 
-    #     # Remove BOS token
-    #     clusters = clusters[:, 1:]
-    #     # Remove BOS + shift by 1
-    #     sequences = inputs.input_ids[:, 2:]
+        # Remove BOS token
+        clusters = clusters[:, 1:]
+        # Remove BOS + shift by 1
+        sequences = inputs.input_ids[:, 2:]
 
-    #     counts = torch.zeros(batch_size, dtype=torch.int32)
-    #     lengths = torch.zeros(batch_size, dtype=torch.int32)
+        counts = torch.zeros(batch_size, dtype=torch.int32)
+        lengths = torch.zeros(batch_size, dtype=torch.int32)
 
-    #     for i in range(batch_size):
-    #         count = 0
-    #         sequence = sequences[i]
-    #         # Remove padding
-    #         sequence = sequence[sequence != self.tokenizer.pad_token_id]
-    #         n_tokens = sequence.shape[0]
-    #         for j in range(n_tokens):
-    #             cluster = clusters[i, j].item()
+        for i in range(batch_size):
+            count = 0
+            sequence = sequences[i]
+            # Remove padding
+            sequence = sequence[sequence != self.tokenizer.pad_token_id]
+            n_tokens = sequence.shape[0]
+            for j in range(n_tokens):
+                cluster = clusters[i, j].item()
 
-    #             watermarking_list = self.watermarking_matrix[:, cluster].bool(
-    #             )
-    #             # Get indices of true values
-    #             green_list = torch.arange(self.vocab_size)[
-    #                 watermarking_list]
-    #             token = sequence[j].item()
-    #             if token in green_list:
-    #                 count += 1
-    #         counts[i] = count
-    #         lengths[i] = n_tokens
+                watermarking_list = self.watermarking_matrix[:, cluster].bool(
+                )
+                # Get indices of true values
+                green_list = torch.arange(vocab_size)[
+                    watermarking_list]
+                token = sequence[j].item()
+                if token in green_list:
+                    count += 1
+            counts[i] = count
+            lengths[i] = n_tokens
 
-    #     del clusters, inputs
-    #     del sequences
+        del clusters, inputs
+        del sequences
 
-    #     torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
-    #     z = (counts - self.gamma * lengths) / \
-    #         torch.sqrt(self.gamma * lengths * (1 - self.gamma))
-    #     return z
+        z = (counts - self.gamma * lengths) / \
+            torch.sqrt(self.gamma * lengths * (1 - self.gamma))
+        return z
 
     def score_text_batch(self, batch_text):
         # grad_scores = self.grad_delta(batch_text)
@@ -393,6 +399,9 @@ class MbMark:
             inputs = self.tokenizer(batch_text, padding=True,
                                     return_tensors="pt").to(self.cluster_detector.device)
             hidden_states = self.cluster_detector(inputs)
-            llr_scores = self.llr_raw(hidden_states, inputs)
+            if self.binom_detect:
+                llr_scores = self.binomial_count(hidden_states, inputs)
+            else:
+                llr_scores = self.llr_raw(hidden_states, inputs)
 
         return llr_scores

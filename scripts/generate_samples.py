@@ -37,7 +37,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl"])
+                        default="mb", choices=["mb", "mb_binom", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl"])
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
@@ -229,7 +229,7 @@ watermarked_model = None
 watermarked_processor = None
 temperature = args.temperature
 
-if args.watermark == "mb":
+if args.watermark == "mb" or args.watermark == "mb_binom":
     # Load final weights into a torch tensor
     dataset_suffix = "openwebtext"
     model_suffix = args.model_name.split("/")[-1]
@@ -339,7 +339,7 @@ data = {
     "model_text": model_text,
     "full_model_text": full_model_text
 }
-if args.watermark == "mb":
+if args.watermark == "mb" or args.watermark == "mb_binom":
     config = {
         "gamma": args.gamma,
         "delta": args.delta,
