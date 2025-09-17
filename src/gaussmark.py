@@ -39,7 +39,8 @@ class GaussMark:
             watermarked = weight.data + \
                 self.watermark_key(weight.shape).to(
                     weight.device, weight.dtype)
-            setattr(module, weight_name, torch.nn.Parameter(watermarked))
+            getattr(module, weight_name).weight.data.copy_(
+                    watermarked)
 
         self.model = model
 

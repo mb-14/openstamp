@@ -16,6 +16,7 @@ from src.kgw_distilled import KGWDistilled
 import json
 import timeit
 import argparse
+import wandb
 
 
 torch.manual_seed(42)
@@ -46,11 +47,21 @@ parser.add_argument(
     help="Directory to save the checkpoints",
 )
 
+parser.add_argument("--max_steps", type=int, default=2500)
+
 
 parser.add_argument("--targeted", action="store_true",
                     help="Use targeted fine-tuning", default=False)
 
+parser.add_argument("--batch_size", type=int, default=48,
+                    help="Batch size for training")
+
+parser.add_argument("--rank", type=int, default=16,
+                    help="Rank for LoRA")
+
 args = parser.parse_args()
+
+print(args)
 
 model_name = args.model_name
 
@@ -90,9 +101,9 @@ if args.watermark_type == "distilled":
     }
 elif args.watermark_type == "mb":
     k = 235
-    final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k235.pth"
+    final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{k}.pth"
     final_weight = torch.load(final_matrix_path)
-    delta = 1.2
+    delta = 1.0
     gamma = 0.25
     watermark = MbMark.mb(
         delta=delta,
@@ -145,10 +156,13 @@ watermarked_model = watermark.model
 
 
 os.makedirs(output_dir, exist_ok=True)
-max_steps = 3000
+max_steps = args.max_steps
 warmup_steps = 500
-learning_rate = 1e-5
-batch_size = 32
+if args.targeted:
+    learning_rate = 3e-5
+else:
+    learning_rate = 1e-5
+batch_size = args.batch_size
 logging_steps = 50
 save_steps = 500
 
@@ -166,7 +180,7 @@ tokenized_dataset = raw_dataset.map(
     tokenize, batched=True, remove_columns=["text"])
 data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 dataloader = DataLoader(tokenized_dataset, batch_size=batch_size,
-                        collate_fn=data_collator, shuffle=True, num_workers=1)
+                        collate_fn=data_collator, shuffle=True, num_workers=4)
 
 
 if args.targeted:
@@ -181,9 +195,12 @@ else:
         num_layers-10, num_layers)]
     target_modules.append("lm_head")
 
+# Initialize wandb
+wandb.init(project="lora-finetuning", mode="offline")
+
 # Apply LoRA to the unembedding layer
 lora_config = LoraConfig(
-    r=8,
+    r=args.rank,
     lora_alpha=32,
     target_modules=target_modules,
     lora_dropout=0.05,
@@ -217,6 +234,7 @@ for batch in dataloader:
     lr_scheduler.step()
     optimizer.zero_grad()
 
+    wandb.log({"loss": loss.item(), "step": step})
     if step % logging_steps == 0:
         print(f"Step {step}: Loss {loss.item():.4f}")
 
@@ -234,7 +252,8 @@ progress_bar.close()
 # Save the final model
 model.save_pretrained(os.path.join(
     output_dir, f"checkpoint-step-{step}"))
-
+    
+wandb.finish()
 
 if config:
     # Save config

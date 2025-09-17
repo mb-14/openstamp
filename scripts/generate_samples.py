@@ -15,6 +15,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, LogitsPr
 from torch.utils.data import TensorDataset
 from src.rl_watermark.ds_utils import convert_linear_layer_to_lora
 import random
+from peft import PeftModel
 
 
 def parse_args():
@@ -37,7 +38,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "mb_binom", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl"])
+                        default="mb", choices=["mb", "mb_binom", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl", "binoc"])
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
@@ -53,6 +54,14 @@ def parse_args():
                         help="Number of clusters for the selector matrix in MbMark")
     parser.add_argument("--rl_model_path", type=str,
                         help="Local path to the RL model", default=None)
+    parser.add_argument('--binoc_performer_lora_path', type=str,
+                        help="Local path to the Binocular performer LoRA weights", default=None)
+    parser.add_argument('--binoc_observer_lora_path', type=str,
+                        help="Local path to the Binocular observer LoRA weights", default=None)
+    parser.add_argument('--checkpoint_dir', type=str, required=True,
+                        help="Directory containing the LoRA checkpoints")
+    parser.add_argument('--step', type=int, default=0,
+                        help="Step of the LoRA checkpoint to load. If 0, no LoRA is applied.")
 
     args = parser.parse_args()
 
@@ -107,7 +116,6 @@ tokenizer = AutoTokenizer.from_pretrained(
     device_map="auto")
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
-
 
 if args.watermark == "rl":
     model_config = AutoConfig.from_pretrained(args.model_name)
@@ -259,7 +267,6 @@ elif args.watermark == "noise":
 
     watermarked_model = mb_mark.model
 elif args.watermark == "gaussmark":
-    # target_param_name = "model.layers.20.mlp.up_proj.weight"
     target_param_name = args.target_param_name
     sigma = args.sigma
     gaussmark = GaussMark(sigma=sigma, seed=args.hash_key,
@@ -281,7 +288,19 @@ elif args.watermark == "rl":
         args.rl_model_path+"/pytorch_model.bin", map_location='cpu'))
     watermarked_model = watermarked_model.cuda()
     watermarked_model.eval()
-    temperature = 0.95
+elif args.watermark == "binoc":
+    if args.binoc_performer_lora_path is None:
+        raise ValueError("Please provide the path to the Binocular performer LoRA weights using --binoc_lora_path")
+    watermarked_model = PeftModel.from_pretrained(model, args.binoc_performer_lora_path)
+    watermarked_model.eval()
+
+if args.step > 0:
+    lora_ckpt_path = os.path.join(
+        args.checkpoint_dir, f"checkpoint-step-{args.step}")
+
+    peft_model = PeftModel.from_pretrained(watermarked_model, lora_ckpt_path)
+    peft_model.merge_and_unload()
+    watermarked_model = peft_model.eval().to(device)
 
 model_text = []
 full_model_text = []
@@ -291,8 +310,11 @@ for batch in tqdm(prompts):
     with torch.no_grad():
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
+        if temperature == 0.0:
+            do_sample = False
+        else:
+            do_sample = args.multinomial
         if watermarked_model is not None:
-
             outputs = watermarked_model.generate(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
@@ -301,7 +323,7 @@ for batch in tqdm(prompts):
                 max_new_tokens=args.max_tokens,
                 min_new_tokens=args.max_tokens,
                 temperature=temperature,
-                do_sample=args.multinomial,
+                do_sample=do_sample,
                 pad_token_id=tokenizer.eos_token_id
             )
         elif watermarked_processor is not None:
@@ -313,7 +335,7 @@ for batch in tqdm(prompts):
                 max_new_tokens=args.max_tokens,
                 min_new_tokens=args.max_tokens,
                 temperature=temperature,
-                do_sample=args.multinomial,
+                do_sample=do_sample,
                 pad_token_id=tokenizer.eos_token_id,
                 logits_processor=LogitsProcessorList([watermarked_processor])
             )
@@ -377,7 +399,11 @@ elif args.watermark == "rl":
     config = {
         "rl_model_path": args.rl_model_path,
     }
-
+elif args.watermark == "binoc":
+    config = {
+        "observer_lora_path": args.binoc_observer_lora_path,
+        "performer_lora_path": args.binoc_performer_lora_path,
+    }
 sample_data = {
     "samples": data,
     "model_name": args.model_name,

@@ -25,14 +25,16 @@ models=(
 # models = ["mbakshi1094/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta1.25"]
 # models=("cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2")
 
-datasets=(super-glue-lm-eval-v1)
+datasets=(mmlu)
 # datasets=(arc_challenge hellaswag)
 
 #* Test the performance of models on different benchmarks
 for dataset in "${datasets[@]}"; do
     for model in "${models[@]}"; do
         echo "Running model=$model on benchmark=$dataset"
-        accelerate launch --main_process_port 0 -m lm_eval --model hf --model_args "pretrained=${model},dtype=bfloat16" --tasks $dataset --batch_size 16 \
+        lm_eval --model hf --model_args "pretrained=${model},dtype=bfloat16" --tasks $dataset \
+        --num_fewshot 5 \
+        --batch_size 8 \
         --output_path "results/$dataset" --log_samples
     done
 done

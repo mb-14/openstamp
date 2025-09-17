@@ -14,7 +14,11 @@ sigma=0.018
 eval_ppl=1
 target_param_name="lm_head.weight"
 K=128
-rl_model_path="/"
+rl_model_path="."
+binoc_performer_lora_path="."
+binoc_observer_lora_path="."
+step=0
+checkpoint_dir="."
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -78,6 +82,26 @@ while [[ "$#" -gt 0 ]]; do
     target_param_name="$2"
     shift
     ;;
+  --rl_model_path)
+    rl_model_path="$2"
+    shift
+    ;;
+  --binoc_performer_lora_path)
+    binoc_performer_lora_path="$2"
+    shift
+    ;;
+  --binoc_observer_lora_path)
+    binoc_observer_lora_path="$2"
+    shift
+    ;;
+  --checkpoint_dir)
+    checkpoint_dir="$2"
+    shift
+    ;;
+  --step)
+    step="$2"
+    shift
+    ;;
   *)
     echo "Unknown parameter passed: $1"
     exit 1
@@ -96,53 +120,31 @@ fi
 log_dir="${output_dir}/logs"
 mkdir -p "$log_dir"
 
-set -x
+set -ex
 
 timestamp=$(date +"%Y%m%d_%H%M%S_%3N")
 # if watermark is gaussmark, set the output file name accordingly
 if [ "$watermark" == "gaussmark" ]; then
-  output_file="${output_dir}/output_seed=${SEED}_sigma=${sigma}_watermark=${watermark}_dataset=${dataset}.json"
+  output_file="${output_dir}/output_seed=${SEED}_sigma=${sigma}_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "mb" ] || [ "$watermark" == "mb_binom" ]; then
-  output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}.json"
+  output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ]; then
-  output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}.json"
-elif [ "$watermark" == "rl" ]; then
-  output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}.json"
-  base_dir="/pool.ssd/users/miroojin/watermarking_rl"
-  rl_model_path="${base_dir}/c4_llama2-7b_llama2-1.1b_b4_step2500_dosample"
+  output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}"
+elif [ "$watermark" == "rl" ] || [ "$watermark" == "binoc" ] || [ "$watermark" == "distilled" ]; then
+  output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "noise" ]; then
-  output_file="${output_dir}/output_seed=${SEED}_distribution=${distribution}_delta=${DELTA}_watermark=${watermark}_dataset=${dataset}.json"
-elif [ "$watermark" == "distilled" ]; then
-  output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}.json"
+  output_file="${output_dir}/output_seed=${SEED}_distribution=${distribution}_delta=${DELTA}_watermark=${watermark}_dataset=${dataset}"
 else
   echo "Unsupported watermark type ${watermark}."
   exit 1
 fi
 
-# if [ "$dataset" = "realnewslike" ]; then
-#   dataset_args="--dataset_path allenai/c4 \
-#     --dataset_config_name realnewslike \
-#     --dataset_split validation \
-#     --data_field text"
-# elif [ "$dataset" = "wikipedia" ]; then
-#   dataset_args="--dataset_path wikipedia \
-#     --dataset_config_name 20220301.en \
-#     --dataset_split train \
-#     --data_field text \
-#     --streaming"
-# elif [ "$dataset" = "arxiv" ]; then
-#   dataset_args="--dataset_path armanc/scientific_papers \
-#     --dataset_config_name arxiv \
-#     --dataset_split test \
-#     --data_field article"
-# elif [ "$dataset" = "booksum" ]; then
-#   dataset_args="--dataset_path kmfoda/booksum \
-#     --dataset_split test \
-#     --data_field chapter"
-# else
-#   echo "Unsupported dataset ${dataset}."
-#   exit 1
-# fi
+# Add step to the output file name if step is greater than 0
+if [ "$step" -gt 0 ]; then
+  output_file="${output_file}_step=${step}.json"
+elif [[ "$output_file" != *.json ]]; then
+  output_file="${output_file}.json"
+fi
 
 if [ "$generate" -eq 1 ]; then
   python -m scripts.generate_samples --num_samples $NUM_SAMPLES \
@@ -157,7 +159,11 @@ if [ "$generate" -eq 1 ]; then
     --k $K \
     --target_param_name $target_param_name \
     --distribution $distribution \
-    --rl_model_path $rl_model_path &>"$log_dir/generate_${timestamp}.log"
+    --rl_model_path $rl_model_path \
+    --binoc_performer_lora_path $binoc_performer_lora_path \
+    --binoc_observer_lora_path $binoc_observer_lora_path \
+    --checkpoint_dir $checkpoint_dir \
+    --step $step &>"$log_dir/generate_${timestamp}.log"
 fi
 
 # Generate paraphrases if PARAPHRASE is set to 1
