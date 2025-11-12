@@ -13,3 +13,5 @@ peft==0.17.1
 datasets==3.6.0
 bitsandbytes==0.47.0
 wandb>=0.21.0
+ipywidgets
+matplotlib
