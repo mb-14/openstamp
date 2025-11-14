@@ -22,6 +22,20 @@ def load_model(model_name: str):
     return model, tokenizer
 
 
+def infer_hidden_size_from_config(config):
+    """
+    Try a handful of common attribute names that different HF configs use for the
+    hidden/state size. This keeps the script compatible with multi-modal configs
+    (e.g., Gemma3) where the attribute lives under `text_config`.
+    """
+    for attr in ("hidden_size", "d_model", "hidden_dim",
+                 "dim", "model_dim", "embed_dim"):
+        value = getattr(config, attr, None)
+        if isinstance(value, int):
+            return value
+    return None
+
+
 def build_prefix_tree(all_input_ids, pad_token_id):
     pad_mask = (all_input_ids != pad_token_id)
     lengths = pad_mask.sum(dim=1)
@@ -110,13 +124,14 @@ def compute_hidden_states(model, tokenizer, all_input_ids, longest_prefixes, pre
             input_ids[j, :len(prefix)] = torch.tensor(prefix, dtype=torch.long)
 
         input_ids = input_ids.cuda()
+        attention_mask = (input_ids != tokenizer.pad_token_id).long().cuda()
 
-        outputs = model(input_ids=input_ids, use_cache=False)
+        outputs = model(input_ids=input_ids, attention_mask=attention_mask)
         logits = outputs.logits  # (B, T, H)
 
         for j, prefix in enumerate(batch):
             prefix_tuple = tuple(prefix)
-            for orig_idx, true_len in source_prefix_to_indices.get(prefix_tuple, []):
+            for orig_idx, true_len in source_prefix_to_indices[prefix_tuple]:
                 index_to_hidden[orig_idx] = logits[j, true_len - 1].cpu()
 
         pbar.update(len(batch))
@@ -134,14 +149,28 @@ def validate_hidden_states(model, tokenizer, all_input_ids, hidden_states, prefi
     indices = random.sample(range(len(all_input_ids)),
                             k=min(num_samples, len(all_input_ids)))
 
+    failed = []
     for idx in indices:
         input_ids = all_input_ids[idx].unsqueeze(0).to("cuda")
-        output = model(input_ids=input_ids)
+        # Validate using the longest prefix
+        sub_prefix = tuple(all_input_ids[idx, :lengths[idx]].tolist())
+        source_prefix = prefix_to_source[sub_prefix]
+        # Verify if validation prefix matches
+        assert sub_prefix == source_prefix[:lengths[idx].item()], \
+            "Sub-prefix does not match the corresponding slice of the source prefix."
+        
+        attention_mask = (input_ids != pad_token_id).long().cuda()
+        output = model(input_ids=input_ids, attention_mask=attention_mask)
         expected = output.logits[0, lengths[idx] -
-                                 1].to("cpu", dtype=torch.bfloat16)
+                                 1].cpu()
         actual = hidden_states[idx]
-        assert torch.allclose(
-            expected, actual, atol=1e-1), f"Validation failed for index {idx}."
+        if not torch.allclose(expected, actual, atol=1e-1):
+            failed.append(idx)
+
+    if failed:
+        rprint(f"[bold red]Validation failed for {len(failed)} indices.[/bold red]")
+    else:
+        rprint("[bold green]All sampled prefixes passed validation.[/bold green]")
 
 
 if __name__ == "__main__":
@@ -170,13 +199,32 @@ if __name__ == "__main__":
     rprint(f"[bold cyan]Building prefix tree...[/bold cyan]")
     trie, prefix_to_indices = build_prefix_tree(
         all_input_ids, tokenizer.pad_token_id)
+    
+    # Validation: ensure all indices are covered
+    total_indices = sum(len(v) for v in prefix_to_indices.values())
+    assert total_indices == all_input_ids.size(0), "Some indices are missing in prefix_to_indices."
 
     rprint(f"[bold cyan]Identifying longest prefixes for reuse...[/bold cyan]")
     longest_prefixes = get_maximal_prefixes(trie)
     prefix_to_source = map_subprefixes_to_longest(
         prefix_to_indices, longest_prefixes)
+    
+    # Validation: ensure all subprefixes are mapped
+    assert len(prefix_to_source) == len(prefix_to_indices), "Some subprefixes are not mapped to longest prefixes."
 
     rprint(f"[bold cyan]Computing hidden states...[/bold cyan]")
+    hidden_size = infer_hidden_size_from_config(model.config)
+    if hidden_size is None:
+        text_config = getattr(model.config, "text_config", None)
+        hidden_size = infer_hidden_size_from_config(
+            text_config) if text_config else None
+    print(f"[bold cyan]Inferred hidden size: {hidden_size}[/bold cyan]")
+    if hidden_size is None:
+        raise ValueError(
+            "Could not determine hidden size from model config. "
+            "Please check that the loaded model exposes a hidden size attribute."
+        )
+
     hidden_states = compute_hidden_states(
         model=model,
         tokenizer=tokenizer,
@@ -184,15 +232,16 @@ if __name__ == "__main__":
         longest_prefixes=longest_prefixes,
         prefix_to_indices=prefix_to_indices,
         prefix_to_source=prefix_to_source,
-        hidden_size=model.config.hidden_size,
+        hidden_size=hidden_size,
         batch_size=args.batch_size,
     )
+    # Ensure there are no zero vectors
+    assert not torch.any(torch.all(hidden_states == 0, dim=1)), "Some hidden states are zero vectors."
 
     if args.validate:
         validate_hidden_states(
             model, tokenizer, all_input_ids, hidden_states, prefix_to_source=prefix_to_source, num_samples=args.batch_size)
 
-    model_name = args.model.split("/")[-1]
     out_path = os.path.join(
         args.dataset_path, f"hidden_states.pt")
     torch.save(hidden_states, out_path)

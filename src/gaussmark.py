@@ -39,7 +39,7 @@ class GaussMark:
             watermarked = weight.data + \
                 self.watermark_key(weight.shape).to(
                     weight.device, weight.dtype)
-            getattr(module, weight_name).weight.data.copy_(
+            getattr(module, weight_name).data.copy_(
                     watermarked)
 
         self.model = model
