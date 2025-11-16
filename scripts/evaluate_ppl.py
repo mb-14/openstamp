@@ -151,6 +151,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, help="Batch size", default=8)
     parser.add_argument("--output_file", type=str)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--human_text", action="store_true",
+                        help="Whether to compute PPL on human text")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -167,7 +169,8 @@ if __name__ == "__main__":
     oracle_model, oracle_tokenizer = initialize_oracle(args.oracle_model)
     ppls = compute_ppl(output_data["samples"], args.batch_size, "full_model_text",
                        oracle_model, oracle_tokenizer, original_tokenizer)
-    # ppls = compute_ppl(dataset.to_dict(), args.batch_size, "full_human_text", oracle_model, oracle_tokenizer, original_tokenizer)
+    if args.human_text:
+        human_ppls = compute_ppl(output_data["samples"], args.batch_size, "full_human_text", oracle_model, oracle_tokenizer, original_tokenizer)
 
     # Add the PPL values to the output data
     ppl = {
@@ -178,6 +181,12 @@ if __name__ == "__main__":
         "median": ppls.median().item(),
         "oracle_model": args.oracle_model,
     }
+    if args.human_text:
+        ppl["human_mean"] = human_ppls.mean().item()
+        ppl["human_max"] = human_ppls.max().item()
+        ppl["human_min"] = human_ppls.min().item()
+        ppl["human_std"] = human_ppls.std().item()
+        ppl["human_median"] = human_ppls.median().item()
 
     output_data["ppl"] = ppl
 
