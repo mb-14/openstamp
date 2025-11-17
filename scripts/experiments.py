@@ -8,25 +8,26 @@ import multiprocessing
 
 # ==== Common Config ====
 seeds = [15485863, 12997009, 22983996]
-seeds = [12997009]
 models = ["meta-llama/Llama-2-7b-hf"]
+# models = ["google/gemma-2-27b"]
 # models = ["mistralai/Mistral-7B-v0.3"]
-datasets = ["arxiv", "wikipedia", "booksum", "realnewslike"]
+datasets = ["arxiv", "wikipedia", "booksum"]
 datasets = ["realnewslike"]
-watermark_type = "binoc"  # Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc
+# Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc
+watermark_type = "kgw"
 paraphrase = 0
 generate = 1
 eval_ppl = 1
-gpus = [6]
+gpus = [1, 2, 3]
 max_workers = len(gpus)
-base_output_dir = "output/lora_targeted"
+base_output_dir = "output/detector"
 steps = [0, 500, 1000, 1500, 2000, 2500, 3000]
 steps = [0]
 checkpoint_dir = "."
 # ==== Watermark-specific Params ====
 k = gamma = delta = distributions = gaussmark_configs = None
 
-if watermark_type == "mb" or watermark_type == "mb_binom":
+if watermark_type == "mb" or watermark_type == "mb_binom" or watermark_type == "mb_discrete":
     checkpoint_dir = "./lora_targeted"
     k = [235]
     gamma = [0.25]
@@ -63,13 +64,13 @@ elif watermark_type == "gaussmark":
   
 elif watermark_type == "rl":
     seeds = [15485863]
-    base_dir="/pool.ssd/users/miroojin/watermarking_rl"
-    rl_model_path=f"{base_dir}/c4_llama2-7b_llama2-1.1b_b4_step2500_dosample"
+    base_dir = "/pool.ssd/users/miroojin/watermarking_rl"
+    rl_model_path = f"{base_dir}/c4_llama2-7b_llama2-1.1b_b4_step2500_dosample"
 elif watermark_type == "binoc":
     seeds = [15485863]
-    base_dir="./binoculars_ft_c4"
-    binoc_performer_lora_path=f"{base_dir}/performer_model_lora_L0_2.0_lambda_0.005"
-    binoc_observer_lora_path=f"{base_dir}/observer_model_lora_L0_2.0_lambda_0.005"
+    base_dir = "./binoculars_ft_c4"
+    binoc_performer_lora_path = f"{base_dir}/performer_model_lora_L0_2.0_lambda_0.005"
+    binoc_observer_lora_path = f"{base_dir}/observer_model_lora_L0_2.0_lambda_0.005"
 
 
 def build_jobs_mb():
@@ -193,6 +194,9 @@ def run_job_common(args_and_locks):
     with lock:
         try:
             env = os.environ.copy()
+            if isinstance(gpu, tuple):
+                gpu = ','.join(map(str, gpu))
+
             env['CUDA_VISIBLE_DEVICES'] = str(gpu)
             env['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
             env['CUDA_CACHE_DISABLE'] = '1'
@@ -222,7 +226,7 @@ if __name__ == '__main__':
     gpu_locks = {gpu: manager.Semaphore(1) for gpu in gpus}
 
     # Select builder
-    if watermark_type in ["mb", "mb_binom"]:
+    if watermark_type in ["mb", "mb_binom", "mb_discrete"]:
         jobs = build_jobs_mb()
     elif watermark_type == "noise":
         jobs = build_jobs_noise()

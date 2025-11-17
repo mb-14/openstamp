@@ -126,7 +126,7 @@ timestamp=$(date +"%Y%m%d_%H%M%S_%3N")
 # if watermark is gaussmark, set the output file name accordingly
 if [ "$watermark" == "gaussmark" ]; then
   output_file="${output_dir}/output_seed=${SEED}_sigma=${sigma}_watermark=${watermark}_dataset=${dataset}"
-elif [ "$watermark" == "mb" ] || [ "$watermark" == "mb_binom" ]; then
+elif [ "$watermark" == "mb" ] || [ "$watermark" == "mb_binom" ] || [ "$watermark" == "mb_discrete" ]; then
   output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ]; then
   output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}"
