@@ -78,11 +78,10 @@ class MbMark:
     @classmethod
     def mb(cls, delta, gamma, seed, final_weight, model, tokenizer, unembedding_param_name, detection_type="llr", mode=Mode.Detect):
         unembedding = getattr(model, unembedding_param_name).weight.data
-        vocab_size = len(tokenizer)
+        vocab_size = model.config.vocab_size or len(tokenizer)
 
         assert unembedding.shape[0] == vocab_size, \
-            "Unembedding matrix and tokenizer must have the same vocab size"
-
+            f"Unembedding matrix {unembedding.shape} and tokenizer ({vocab_size}) must have the same vocab size"
         assert final_weight.shape[1] == model.config.hidden_size, \
             "Final weight and model hidden size must match"
 
@@ -178,8 +177,7 @@ class MbMark:
             matrix[greenlist_ids, i] = delta
         return matrix
 
-    @torch.no_grad()
-    def llr_raw(self, hidden_states, inputs):
+    def llr_per_token(self, hidden_states, inputs):
         input_ids = inputs.input_ids
         attention_mask = inputs.attention_mask
         labels = input_ids[:, 2:].to(self.unembedding.device)
@@ -206,6 +204,12 @@ class MbMark:
         mask = attention_mask.bool()
         log_probs_base = log_probs_base.masked_fill(~mask, 0.0)
         log_probs_marked = log_probs_marked.masked_fill(~mask, 0.0)
+        return log_probs_base, log_probs_marked
+
+    @torch.no_grad()
+    def llr_raw(self, hidden_states, inputs):
+        log_probs_base, log_probs_marked = self.llr_per_token(
+            hidden_states, inputs)
 
         sum_ll_base = log_probs_base.sum(dim=1)
         sum_ll_marked = log_probs_marked.sum(dim=1)
@@ -239,8 +243,10 @@ class MbMark:
         watermark_logits = watermark_logits.permute(
             1, 2, 0)                  # (B, T, V)
 
-        hidden_states = hidden_states.to(self.unembedding.device).to(self.unembedding.dtype)
-        watermark_logits = watermark_logits.to(self.unembedding.device).to(self.unembedding.dtype)
+        hidden_states = hidden_states.to(
+            self.unembedding.device).to(self.unembedding.dtype)
+        watermark_logits = watermark_logits.to(
+            self.unembedding.device).to(self.unembedding.dtype)
         logits_base = hidden_states @ self.unembedding.T  # (B, T, V)
         logits_marked = logits_base + watermark_logits
 
@@ -440,43 +446,49 @@ class MbMark:
         z = (counts - self.gamma * lengths) / \
             torch.sqrt(self.gamma * lengths * (1 - self.gamma))
         return z
-    
 
     def binomial_count_vectorized(self, hidden_states, inputs):
         device = hidden_states.device
         dtype = hidden_states.dtype
 
         final_weight_device = self.final_weight.to(device=device, dtype=dtype)
-        
+
         selectors = torch.matmul(hidden_states, final_weight_device.T)
-        
+
         clusters = torch.argmax(selectors, dim=-1)
 
         input_ids = inputs.input_ids.to(device)
-        
 
         aligned_clusters = clusters[:, 1:-1]
         aligned_tokens = input_ids[:, 2:]
-        
+
         padding_mask = (aligned_tokens != self.tokenizer.pad_token_id)
 
         watermarking_matrix_device = self.watermarking_matrix.to(device)
 
-        is_green = watermarking_matrix_device[aligned_tokens, aligned_clusters].bool()
+        is_green = watermarking_matrix_device[aligned_tokens, aligned_clusters].bool(
+        )
         green_hits = is_green & padding_mask
-        
+
         counts = green_hits.sum(dim=1, dtype=torch.int32)
         lengths = padding_mask.sum(dim=1, dtype=torch.int32)
         counts_f = counts.to(dtype)
         lengths_f = lengths.to(dtype)
-        gamma = self.gamma # Assuming gamma is a scalar
-        
+        gamma = self.gamma  # Assuming gamma is a scalar
+
         numerator = (counts_f - gamma * lengths_f)
         denominator = torch.sqrt(gamma * lengths_f * (1 - gamma))
         z = torch.zeros_like(numerator)
         valid_mask = (lengths_f > 0)
         z[valid_mask] = numerator[valid_mask] / denominator[valid_mask]
         return z.cpu().float()
+    
+    def get_hidden_states(self, batch_text):
+        with torch.no_grad():
+            inputs = self.tokenizer(batch_text, padding=True,
+                                    return_tensors="pt").to(self.cluster_detector.device)
+            hidden_states = self.cluster_detector(inputs)
+        return hidden_states, inputs
 
     def score_text_batch(self, batch_text):
         # grad_scores = self.grad_delta(batch_text)
@@ -488,14 +500,13 @@ class MbMark:
             tokenizer: The tokenizer to use for scoring.
         """
         with torch.no_grad():
-            inputs = self.tokenizer(batch_text, padding=True,
-                                    return_tensors="pt").to(self.cluster_detector.device)
-            hidden_states = self.cluster_detector(inputs)
+            hidden_states, inputs = self.get_hidden_states(batch_text)
             if self.detection_type == "llr":
                 llr_scores = self.llr_raw(hidden_states, inputs)
             elif self.detection_type == "llr_discrete":
                 llr_scores = self.llr_discrete(hidden_states, inputs)
             else:
-                llr_scores = self.binomial_count_vectorized(hidden_states, inputs)
+                llr_scores = self.binomial_count_vectorized(
+                    hidden_states, inputs)
 
         return llr_scores

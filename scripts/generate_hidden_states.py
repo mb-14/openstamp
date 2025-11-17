@@ -18,7 +18,6 @@ def load_model(model_name: str):
         torch_dtype=torch.bfloat16
     )
     model.eval()
-    model.lm_head = torch.nn.Identity()
     return model, tokenizer
 
 
@@ -126,8 +125,8 @@ def compute_hidden_states(model, tokenizer, all_input_ids, longest_prefixes, pre
         input_ids = input_ids.cuda()
         attention_mask = (input_ids != tokenizer.pad_token_id).long().cuda()
 
-        outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-        logits = outputs.logits  # (B, T, H)
+        outputs = model.model(input_ids=input_ids, attention_mask=attention_mask, return_dict=True)
+        logits = outputs.last_hidden_state  # (B, T, H)
 
         for j, prefix in enumerate(batch):
             prefix_tuple = tuple(prefix)
