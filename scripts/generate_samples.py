@@ -14,6 +14,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, LogitsProcessorList, AutoConfig
 from torch.utils.data import TensorDataset
 from src.rl_watermark.ds_utils import convert_linear_layer_to_lora
+from src.utils import load_model
 import random
 from peft import PeftModel
 
@@ -111,11 +112,7 @@ else:
 
 set_seed(args.seed)
 
-tokenizer = AutoTokenizer.from_pretrained(
-    args.model_name,
-    device_map="auto")
-if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.eos_token
+
 
 if args.watermark == "rl":
     model_config = AutoConfig.from_pretrained(args.model_name)
@@ -124,10 +121,12 @@ if args.watermark == "rl":
             setattr(model_config, key, 0.0)
     model = AutoModelForCausalLM.from_pretrained(args.model_name,
                                                  config=model_config, device_map="auto", torch_dtype=torch.bfloat16).train()
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name,device_map="auto")
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 else:
-    model = AutoModelForCausalLM.from_pretrained(args.model_name,
-                                                 device_map="auto", torch_dtype=torch.bfloat16)
-    model.eval()
+    model, tokenizer = load_model(args.model_name)
+                                              
 
 device = model.device
 if args.dataset == "combined":

@@ -6,19 +6,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from rich import print as rprint
 import random
 from collections import defaultdict
-
-
-def load_model(model_name: str):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        device_map="auto",
-        torch_dtype=torch.bfloat16
-    )
-    model.eval()
-    return model, tokenizer
+from src.utils import load_model
 
 
 def infer_hidden_size_from_config(config):
