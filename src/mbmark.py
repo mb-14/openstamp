@@ -210,7 +210,8 @@ class MbMark:
     def llr_raw(self, hidden_states, inputs):
         log_probs_base, log_probs_marked = self.llr_per_token(
             hidden_states, inputs)
-
+        attention_mask = inputs.attention_mask[:, 2:].to(
+            self.unembedding.device)
         sum_ll_base = log_probs_base.sum(dim=1)
         sum_ll_marked = log_probs_marked.sum(dim=1)
 
@@ -220,8 +221,7 @@ class MbMark:
 
         # Clean up
         del inputs, hidden_states, log_probs_base, log_probs_marked
-        del logits_base, logits_marked, labels
-        del attention_mask, mask
+        del attention_mask
         torch.cuda.empty_cache()
         return llr.cpu().float()
 
