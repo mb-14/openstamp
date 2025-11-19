@@ -7,7 +7,7 @@ large_models = [
 
 
 def load_model(model_name: str):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     

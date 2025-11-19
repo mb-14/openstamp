@@ -125,7 +125,8 @@ if args.watermark == "rl":
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 else:
-    model, tokenizer = load_model(args.model_name)
+    model_name = "mbakshi1094/Llama-2-7b-hf-watermarked-gaussmark-sigma0.04-seed15485863"
+    model, tokenizer = load_model(model_name=model_name)
                                               
 
 device = model.device

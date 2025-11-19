@@ -8,13 +8,14 @@ import multiprocessing
 
 # ==== Common Config ====
 seeds = [15485863, 12997009, 22983996]
+seeds = [15485863]
 models = ["meta-llama/Llama-2-7b-hf"]
 # models = ["google/gemma-2-27b"]
 # models = ["mistralai/Mistral-7B-v0.3"]
 datasets = ["arxiv", "wikipedia", "booksum"]
 datasets = ["realnewslike"]
 # Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc
-watermark_type = "kgw"
+watermark_type = "gaussmark"
 paraphrase = 0
 generate = 1
 eval_ppl = 1
