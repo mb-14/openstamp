@@ -20,6 +20,7 @@ import torch.nn.functional as F  # noqa: E402
 from sklearn.cluster import MiniBatchKMeans  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 from tqdm import tqdm  # noqa: E402
+from transformers import set_seed  # noqa: E402
 
 
 PLOT_DIR_NAME = "plots"
@@ -254,18 +255,20 @@ def save_histogram(values: torch.Tensor, path: Path, bins: int = 100) -> None:
 def main() -> None:
     args = parse_args()
     torch.set_grad_enabled(False)
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+
+    set_seed(args.seed)
+    # torch.manual_seed(args.seed)
+    # np.random.seed(args.seed)
 
     dataset_suffix = args.dataset_name.split("/")[-1]
     model_suffix = args.model_name.split("/")[-1]
     data_dir = Path(args.root_dir) / "data" / \
-        f"{dataset_suffix}_{model_suffix}"
+        f"{dataset_suffix}_{model_suffix}_seed{args.seed}"
     model_dir = Path(args.root_dir) / "saved_models" / \
         f"{dataset_suffix}_{model_suffix}"
     hidden_states_path = data_dir / HIDDEN_STATES_FILENAME
     plot_dir = Path(args.root_dir) / PLOT_DIR_NAME / \
-        f"{dataset_suffix}_{model_suffix}" / f"k_{args.k}"
+        f"{dataset_suffix}_{model_suffix}_seed{args.seed}" / f"k_{args.k}"
 
     hidden_states = load_hidden_states(hidden_states_path, args.num_samples)
     print(f"Loaded hidden states: {hidden_states.shape}")

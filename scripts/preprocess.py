@@ -13,10 +13,11 @@ from typing import List
 import einops
 import torch
 from datasets import load_dataset
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, set_seed
 from tqdm import tqdm
 from typing import List, Union
-torch.manual_seed(42)
+import random
+import numpy as np
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +60,12 @@ def parse_args() -> argparse.Namespace:
         "--output-root",
         default="data",
         help="Directory where the prefixes tensor will be stored.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=int(os.getenv("SEED", 42)),
+        help="Random seed for reproducibility.",
     )
     return parser.parse_args()
 
@@ -159,14 +166,24 @@ def balance_data(
     return [balanced]
 
 def collect_prefixes(args: argparse.Namespace, tokenizer) -> torch.Tensor:
-    dataset = load_dataset(
-        args.dataset_name,
-        split="train",
-        streaming=True,
-        trust_remote_code=True,
-    )
+
+    if args.dataset_name == "Skylion007/openwebtext":
+        dataset = load_dataset(
+            args.dataset_name,
+            split="train",
+            streaming=True,
+            trust_remote_code=True,
+        )
+    else:
+        dataset = load_dataset(
+            args.dataset_name,
+            name="sample-10BT",
+            split="train",
+            streaming=True,
+            trust_remote_code=True,
+        )
     dataset = dataset.filter(lambda example: filter_length(example, tokenizer, args.max_seq_len))
-    dataset = dataset.shuffle(seed=42).take(args.total * args.batch_size)
+    dataset = dataset.shuffle(seed=args.seed).take(args.total * args.batch_size)
 
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size)
     progress_bar = tqdm(dataloader, total=args.total, desc="Collecting prefixes")
@@ -200,10 +217,11 @@ def collect_prefixes(args: argparse.Namespace, tokenizer) -> torch.Tensor:
     return torch.cat(all_prefixes, dim=0)
 
 
-def save_prefixes(prefixes: torch.Tensor, dataset_name: str, model_name: str, output_root: str) -> str:
+def save_prefixes(prefixes: torch.Tensor, dataset_name: str, model_name: str, output_root: str, seed: int) -> str:
+    # Keep the original behavior of using only the dataset suffix (last path segment)
     dataset_suffix = dataset_name.split("/")[-1]
     model_suffix = model_name.split("/")[-1]
-    prefixes_path = os.path.join(output_root, f"{dataset_suffix}_{model_suffix}", "prefixes.pt")
+    prefixes_path = os.path.join(output_root, f"{dataset_suffix}_{model_suffix}_seed{seed}", "prefixes.pt")
     os.makedirs(os.path.dirname(prefixes_path), exist_ok=True)
     torch.save(prefixes, prefixes_path)
     return prefixes_path
@@ -211,9 +229,11 @@ def save_prefixes(prefixes: torch.Tensor, dataset_name: str, model_name: str, ou
 
 def main():
     args = parse_args()
+    # Set global seeds for reproducibility
+    set_seed(args.seed)
     tokenizer = prepare_tokenizer(args.model_name)
     prefixes = collect_prefixes(args, tokenizer)
-    output_path = save_prefixes(prefixes, args.dataset_name, args.model_name, args.output_root)
+    output_path = save_prefixes(prefixes, args.dataset_name, args.model_name, args.output_root, args.seed)
     print(f"Saved {prefixes.size(0)} prefixes to {output_path}")
 
 

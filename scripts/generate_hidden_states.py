@@ -2,7 +2,7 @@ import os
 import torch
 import argparse
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed
 from rich import print as rprint
 import random
 from collections import defaultdict
@@ -163,6 +163,8 @@ def validate_hidden_states(model, tokenizer, all_input_ids, hidden_states, prefi
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_path", type=str)
+    parser.add_argument("--seed", type=int, default=int(os.getenv("SEED", 42)),
+                        help="Random seed for reproducibility.")
     parser.add_argument("--model", type=str,
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument("--batch_size", type=int, default=64)
@@ -171,7 +173,8 @@ if __name__ == "__main__":
                         help="Number of samples to process from the dataset")
     args = parser.parse_args()
 
-    torch.manual_seed(42)
+    # Set global seeds for reproducibility
+    set_seed(args.seed)
 
     rprint(f"[bold green]Loading model...[/bold green]")
     model, tokenizer = load_model(args.model)
