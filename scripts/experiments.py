@@ -8,21 +8,22 @@ import multiprocessing
 
 # ==== Common Config ====
 seeds = [15485863, 12997009, 22983996]
+seeds = [15485863]
 models = ["meta-llama/Llama-2-7b-hf"]
 # models = ["google/gemma-2-27b"]
 # models = ["mistralai/Mistral-7B-v0.3"]
 datasets = ["arxiv", "wikipedia", "booksum"]
 datasets = ["realnewslike"]
 # Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc
-watermark_type = "kgw"
+watermark_type = "gaussmark"
 paraphrase = 0
 generate = 1
 eval_ppl = 1
 gpus = [1, 2, 3]
 max_workers = len(gpus)
-base_output_dir = "output/detector"
+base_output_dir = "output/gm_test"
 steps = [0, 500, 1000, 1500, 2000, 2500, 3000]
-steps = [0]
+steps = [2500]
 checkpoint_dir = "."
 # ==== Watermark-specific Params ====
 k = gamma = delta = distributions = gaussmark_configs = None
@@ -31,7 +32,7 @@ if watermark_type == "mb" or watermark_type == "mb_binom" or watermark_type == "
     checkpoint_dir = "./lora_targeted"
     k = [235]
     gamma = [0.25]
-    delta = [1.0]
+    delta = [0, 1.0]
 
 elif watermark_type == "noise":
     delta = [1.25]
@@ -46,6 +47,8 @@ elif watermark_type == "distilled":
     models = ["cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"]
 
 elif watermark_type == "gaussmark":
+    checkpoint_dir = "./ft_saksham/openstamp_iclr_rebuttal/gaussmark_lora_fineweb"
+
     gaussmark_configs = [
         ("lm_head.weight", sigma)
         for sigma in [0.004, 0.005, 0.006, 0.007]
