@@ -239,21 +239,21 @@ temperature = args.temperature
 
 if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
     # Load final weights into a torch tensor
-    dataset_suffix = "openwebtext"
-    model_suffix = args.model_name.split("/")[-1]
-    final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{args.k}.pth"
-    final_weight = torch.load(final_matrix_path)
-    mb_mark = MbMark.mb(
-        delta=args.delta,
-        gamma=args.gamma,
-        seed=args.hash_key,
-        final_weight=final_weight,
-        model=model,
-        unembedding_param_name="lm_head",
-        tokenizer=tokenizer,
-        mode=Mode.Generate,
-    )
-    watermarked_model = mb_mark.model
+    # dataset_suffix = "openwebtext"
+    # model_suffix = args.model_name.split("/")[-1]
+    # final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{args.k}.pth"
+    # final_weight = torch.load(final_matrix_path)
+    # mb_mark = MbMark.mb(
+    #     delta=args.delta,
+    #     gamma=args.gamma,
+    #     seed=args.hash_key,
+    #     final_weight=final_weight,
+    #     model=model,
+    #     unembedding_param_name="lm_head",
+    #     tokenizer=tokenizer,
+    #     mode=Mode.Generate,
+    # )
+    watermarked_model = model
 elif args.watermark == "noise":
     mb_mark = MbMark.noise_injection(
         delta=args.delta,
@@ -267,11 +267,11 @@ elif args.watermark == "noise":
 
     watermarked_model = mb_mark.model
 elif args.watermark == "gaussmark":
-    target_param_name = args.target_param_name
-    sigma = args.sigma
-    gaussmark = GaussMark(sigma=sigma, seed=args.hash_key,
-                          target_param_name=target_param_name, tokenizer=tokenizer, model=model)
-    watermarked_model = gaussmark.model
+    # target_param_name = args.target_param_name
+    # sigma = args.sigma
+    # gaussmark = GaussMark(sigma=sigma, seed=args.hash_key,
+    #                       target_param_name=target_param_name, tokenizer=tokenizer, model=model)
+    watermarked_model = model
 elif args.watermark == "distilled":
     watermark = KGWDistilled(model=model, tokenizer=tokenizer, gamma=0.25,
                              seeding_scheme="simple_1", kgw_device="cpu")
