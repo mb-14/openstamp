@@ -60,7 +60,7 @@ def main():
     #! use the fineweb-edu dataset
     # dataset = load_dataset("HuggingFaceFW/fineweb-edu", name="sample-10BT", split="train", streaming=False)
 
-    dataset = load_dataset("Skylion007/openwebtext", split="train[:2%]", trust_remote_code=True, streaming=False)
+    dataset = load_dataset("Skylion007/openwebtext", split="train[0:500000]", num_proc=32, trust_remote_code=True, streaming=False)
     dataset = dataset.shuffle(seed=42).select(range(500000))
     column_names = dataset.column_names
     dataset = dataset.remove_columns([col for col in column_names if col != "text"])
