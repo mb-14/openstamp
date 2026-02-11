@@ -19,6 +19,8 @@ binoc_performer_lora_path="."
 binoc_observer_lora_path="."
 step=0
 checkpoint_dir="."
+semalign=1
+embedding_model="e5"
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -102,6 +104,14 @@ while [[ "$#" -gt 0 ]]; do
     step="$2"
     shift
     ;;
+  --semalign)
+    semalign="$2"
+    shift
+    ;;
+  --embedding_model)
+    embedding_model="$2"
+    shift
+    ;;
   *)
     echo "Unknown parameter passed: $1"
     exit 1
@@ -127,7 +137,11 @@ timestamp=$(date +"%Y%m%d_%H%M%S_%3N")
 if [ "$watermark" == "gaussmark" ]; then
   output_file="${output_dir}/output_seed=${SEED}_sigma=${sigma}_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "mb" ] || [ "$watermark" == "mb_binom" ] || [ "$watermark" == "mb_discrete" ]; then
-  output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}"
+  if [ "$semalign" -eq 1 ]; then
+    output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}_semalign_embedding=${embedding_model}"
+  else
+    output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}"
+  fi
 elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ]; then
   output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "rl" ] || [ "$watermark" == "binoc" ] || [ "$watermark" == "distilled" ]; then
@@ -163,11 +177,14 @@ if [ "$generate" -eq 1 ]; then
     --binoc_performer_lora_path $binoc_performer_lora_path \
     --binoc_observer_lora_path $binoc_observer_lora_path \
     --checkpoint_dir $checkpoint_dir \
-    --step $step &>"$log_dir/generate_${timestamp}.log"
+    --step $step \
+    --semalign $semalign \
+    --embedding_model $embedding_model &>"$log_dir/generate_${timestamp}.log"
 fi
 
 # Generate paraphrases if PARAPHRASE is set to 1
 if [ "$PARAPHRASE" -eq 1 ]; then
+
   python scripts/paraphrase.py \
     --output_file $output_file \
     --lex 60 --order 0 &>"$log_dir/paraphrase_l60_${timestamp}.log"
@@ -175,6 +192,9 @@ if [ "$PARAPHRASE" -eq 1 ]; then
   python scripts/paraphrase.py \
     --output_file $output_file \
     --lex 20 --order 0 &>"$log_dir/paraphrase_l20_${timestamp}.log"
+
+  # python scripts/paraphrase_llm.py \
+  #   --output_file $output_file --num_beams 3 &>"$log_dir/paraphrase_llm_${timestamp}.log"
 fi
 
 MODEL=$model K=$K OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$timestamp.ipynb"
