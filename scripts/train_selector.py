@@ -25,8 +25,9 @@ from tqdm import tqdm  # noqa: E402
 PLOT_DIR_NAME = "plots"
 RIDGE_ALPHA = 1e-3
 HIDDEN_STATES_FILENAME = "hidden_states.pt"
+PREFIXES_FILENAME = "prefixes.pt"
 PROJECTION_EVAL_SAMPLES = 5_000
-RESCALE_MATRIX = False
+RESCALE_MATRIX = True
 MIN_CLUSTER_SIZE = 10
 MAX_PER_CLASS = 30_000
 
@@ -52,6 +53,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prf-key", type=int, default=42,
                         help="Seed for label generation.")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--sem-align",
+        action="store_true",
+        default=False,
+        help="Use semantic alignment: project hidden states before clustering and regression.",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        type=str,
+        default="all-mpnet-base-v2",
+        help="Embedding model name for semantic alignment.",
+    )
     return parser.parse_args()
 
 
@@ -61,6 +74,19 @@ def load_hidden_states(path: Path, num_samples: int) -> torch.Tensor:
     if num_samples:
         hidden_states = hidden_states[:num_samples]
     return hidden_states
+
+
+def load_alignment_matrix(data_dir: Path, embedding_model: str) -> torch.Tensor | None:
+    """Load the semantic alignment matrix if it exists."""
+    align_path = data_dir / f"align_ridge_{embedding_model}.pt"
+    if not align_path.exists():
+        raise FileNotFoundError(
+            f"Alignment matrix not found at {align_path}. "
+            f"Please run generate_alignment_ridge.py first."
+        )
+    print(f"Loading alignment matrix from {align_path}")
+    W_align = torch.load(align_path)
+    return W_align.float()
 
 
 def generate_rand_proj_labels(hidden_states: torch.Tensor, prf_key: int, k: int) -> torch.Tensor:
@@ -94,7 +120,7 @@ def generate_kmeans_labels(
 
 def clean_clusters(
     all_labels: torch.Tensor, all_hidden_states: torch.Tensor, min_size: int
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Remove tiny clusters and reindex labels to be contiguous."""
     device = all_labels.device
     max_label = all_labels.max().item()
@@ -109,7 +135,7 @@ def clean_clusters(
     remapped_labels = mapping[all_labels]
     valid_idx = remapped_labels != -1
 
-    return remapped_labels[valid_idx], all_hidden_states[valid_idx]
+    return remapped_labels[valid_idx], all_hidden_states[valid_idx], valid_idx
 
 
 def balanced_downsample(
@@ -132,7 +158,7 @@ def balanced_downsample(
         start = end
 
     selected_idx = torch.cat(selected_idx)
-    return hidden[selected_idx], labels[selected_idx]
+    return hidden[selected_idx], labels[selected_idx], selected_idx
 
 
 def ridge_regression(X: torch.Tensor, Y: torch.Tensor, alpha: float) -> torch.Tensor:
@@ -163,27 +189,6 @@ def compute_accuracy(final_matrix: torch.Tensor, X: torch.Tensor, y_true: torch.
     return (y_pred == y_true).float().mean().item()
 
 
-def post_process(
-    selector_matrix: torch.Tensor,
-    k: int,
-    train_hidden_states: torch.Tensor,
-    train_labels: torch.Tensor,
-    val_hidden_states: torch.Tensor,
-    val_labels: torch.Tensor,
-    rescale_mat: bool,
-) -> tuple[torch.Tensor, float, float]:
-    if rescale_mat:
-        final_matrix = rescale(
-            selector_matrix, k, train_hidden_states, train_labels)
-    else:
-        final_matrix = selector_matrix
-    train_accuracy = compute_accuracy(
-        final_matrix, train_hidden_states, train_labels)
-    val_accuracy = compute_accuracy(
-        final_matrix, val_hidden_states, val_labels)
-    return final_matrix, train_accuracy, val_accuracy
-
-
 def measure_one_hotness(
     logits: torch.Tensor, labels: torch.Tensor | None = None, p: int = 1
 ) -> dict[str, float | None]:
@@ -208,6 +213,7 @@ def measure_one_hotness(
     }
 
     if labels is not None:
+
         if labels.numel() != N:
             raise ValueError(
                 "labels must have the same number of elements as logits rows")
@@ -251,6 +257,39 @@ def save_histogram(values: torch.Tensor, path: Path, bins: int = 100) -> None:
     plt.close()
 
 
+def train(train_hidden_states, train_labels, k, W_align=None):
+    # Downsample to cap per-class size for efficiency.
+    train_hidden_states_ds, train_labels_ds, _ = balanced_downsample(
+        train_hidden_states, train_labels, max_per_class=MAX_PER_CLASS
+    )
+
+    print(
+        f"Train size: {len(train_hidden_states)} ({len(train_hidden_states_ds)} after downsample), "
+    )
+    # Train ridge regression selector.
+    train_labels_one_hot = F.one_hot(train_labels_ds, num_classes=k).float()
+    W_selector = ridge_regression(
+        train_hidden_states_ds,
+        train_labels_one_hot,
+        alpha=RIDGE_ALPHA,
+    )
+    if torch.isnan(W_selector).any():
+        raise ValueError("NaNs found in regression weights.")
+
+    if RESCALE_MATRIX:
+        final_matrix = rescale(
+            W_selector.T, k, train_hidden_states_ds, train_labels_ds)
+    else:
+        final_matrix = W_selector.T
+
+    if W_align is not None:
+        final_matrix = final_matrix @ W_align.T
+
+    if torch.isnan(final_matrix).any():
+        raise ValueError("NaNs found after post processing.")
+    return final_matrix
+
+
 def main() -> None:
     args = parse_args()
     torch.set_grad_enabled(False)
@@ -270,26 +309,48 @@ def main() -> None:
     hidden_states = load_hidden_states(hidden_states_path, args.num_samples)
     print(f"Loaded hidden states: {hidden_states.shape}")
 
-    l2_norm = hidden_states.norm(p=2, dim=1)
+    # Load alignment matrix if semantic alignment is enabled
+    W_align = None
+    hidden_states_for_clustering = hidden_states.clone()
+    if args.sem_align:
+        W_align = load_alignment_matrix(data_dir, args.embedding_model)
+        print(f"Alignment matrix shape: {W_align.shape}")
+        # Project hidden states to embedding space for clustering
+        hidden_states_for_clustering = F.linear(hidden_states, W_align.T)
+        print(
+            f"Projected hidden states shape: {hidden_states_for_clustering.shape}")
+
+    l2_norm = hidden_states_for_clustering.norm(p=2, dim=1)
     norm_mean = l2_norm.mean().item()
     norm_std = l2_norm.std().item()
     print(f"L2 Norm Mean: {norm_mean:.4f}, L2 Norm Std: {norm_std:.4f}")
 
     prf_key = args.prf_key % 2**64
     if args.labeling == "kmeans":
-        all_labels, _ = generate_kmeans_labels(hidden_states, prf_key, args.k)
-        all_labels, hidden_states = clean_clusters(
-            all_labels, hidden_states, min_size=MIN_CLUSTER_SIZE)
+        if args.sem_align:
+            hidden_states_for_clustering = F.normalize(
+                hidden_states_for_clustering, dim=1)
+
+        all_labels, _ = generate_kmeans_labels(
+            hidden_states_for_clustering, prf_key, args.k)
+        all_labels_cleaned, hidden_states_for_clustering_cleaned, valid_idx = clean_clusters(
+            all_labels, hidden_states_for_clustering, min_size=MIN_CLUSTER_SIZE)
+        # Sync original hidden states with cleaned labels
+        hidden_states = hidden_states[valid_idx]
+        all_labels = all_labels_cleaned
+        hidden_states_for_clustering = hidden_states_for_clustering_cleaned
         k = int(all_labels.max().item() + 1)
         print(f"Reduced number of classes after cleaning: {k}")
-    else:
-        all_labels = generate_rand_proj_labels(hidden_states, prf_key, args.k)
+    elif args.labeling == "rand_proj":
+        all_labels = generate_rand_proj_labels(
+            hidden_states_for_clustering, prf_key, args.k)
         k = args.k
 
     unique, counts = torch.unique(all_labels, return_counts=True)
     counts_np = counts.cpu().numpy()
+    semalign_prefix = f"semalign_{args.embedding_model}_" if args.sem_align else ""
     save_pie_chart(counts_np, unique.cpu().numpy(),
-                   plot_dir / "cluster_distribution.png")
+                   plot_dir / f"{semalign_prefix}cluster_distribution_{args.labeling}_k{args.k}.png")
     print(f"Cluster counts: {counts_np.tolist()}")
 
     train_idx, val_idx = train_test_split(
@@ -298,35 +359,18 @@ def main() -> None:
         stratify=all_labels.cpu().numpy(),
         random_state=args.seed,
     )
-    train_hidden_states = hidden_states[train_idx]
+    train_hidden_states = hidden_states_for_clustering[train_idx]
+    train_hidden_states_orig = hidden_states[train_idx]
     train_labels = all_labels[train_idx]
     val_hidden_states = hidden_states[val_idx]
     val_labels = all_labels[val_idx]
 
-    # Downsample to cap per-class size for efficiency.
-    train_hidden_states_ds, train_labels_ds = balanced_downsample(
-        train_hidden_states, train_labels, max_per_class=MAX_PER_CLASS
-    )
-    print(
-        f"Train size: {len(train_hidden_states)} ({len(train_hidden_states_ds)} after downsample), "
-        f"Val size: {len(val_hidden_states)}"
-    )
+    final_matrix = train(train_hidden_states, train_labels, k,
+                         W_align=W_align)
 
-    # Train ridge regression selector.
-    train_labels_one_hot = F.one_hot(train_labels_ds, num_classes=k).float()
-    W = ridge_regression(
-        train_hidden_states_ds,
-        train_labels_one_hot,
-        alpha=RIDGE_ALPHA,
-    )
-    if torch.isnan(W).any():
-        raise ValueError("NaNs found in regression weights.")
-
-    final_matrix, train_acc, val_acc = post_process(
-        W.T, k, train_hidden_states_ds, train_labels_ds, val_hidden_states, val_labels, RESCALE_MATRIX
-    )
-    if torch.isnan(final_matrix).any():
-        raise ValueError("NaNs found after post processing.")
+    train_acc = compute_accuracy(
+        final_matrix, train_hidden_states_orig, train_labels)
+    val_acc = compute_accuracy(final_matrix, val_hidden_states, val_labels)
 
     logits_val = F.linear(val_hidden_states, final_matrix)
     one_hotness_metrics = measure_one_hotness(
@@ -338,16 +382,20 @@ def main() -> None:
     delta_w = watermark_matrix @ final_matrix
     projections = F.linear(
         val_hidden_states[:PROJECTION_EVAL_SAMPLES], delta_w)
-    save_histogram(projections, plot_dir / "projections_hist.png")
+    save_histogram(projections, plot_dir /
+                   f"{semalign_prefix}projections_hist.png")
 
     extreme_threshold = 3.0
     extreme_counts = (projections.abs() > extreme_threshold).sum(dim=1)
     extreme_fraction = extreme_counts.float().mean().item() / projections.size(1)
 
     model_dir.mkdir(parents=True, exist_ok=True)
-    selector_path = model_dir / f"selector_matrix_k{k}.pth"
+    suffix = f"_semalign_{args.embedding_model}" if args.sem_align else ""
+    selector_path = model_dir / f"selector_matrix_k{k}{suffix}.pth"
     torch.save(final_matrix, selector_path)
     print(f"Saved selector matrix to {selector_path}")
+    if args.sem_align:
+        print(f"Note: This matrix is composed (selector @ alignment) and maps directly from hidden states to labels.")
 
     metrics = {
         "k": k,
@@ -358,7 +406,14 @@ def main() -> None:
         "one_hotness": one_hotness_metrics,
         "projection_extreme_fraction": extreme_fraction,
         "projection_threshold": extreme_threshold,
+        "sem_align": args.sem_align,
+        "embedding_model": args.embedding_model if args.sem_align else None,
     }
+
+    metrics_path = model_dir / f"selector_metrics_k{k}{suffix}.json"
+    with open(metrics_path, "w") as f:
+        json.dump(metrics, f, indent=2)
+    print(f"Saved metrics to {metrics_path}")
     print(json.dumps(metrics, indent=2))
 
 

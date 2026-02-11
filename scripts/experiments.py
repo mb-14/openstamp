@@ -6,32 +6,39 @@ import itertools
 import os
 import multiprocessing
 
+NUM_SAMPLES = 500
 # ==== Common Config ====
 seeds = [15485863, 12997009, 22983996]
+# seeds = [15485863]
 models = ["meta-llama/Llama-2-7b-hf"]
 # models = ["google/gemma-2-27b"]
 # models = ["mistralai/Mistral-7B-v0.3"]
 datasets = ["arxiv", "wikipedia", "booksum"]
 datasets = ["realnewslike"]
 # Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc
-watermark_type = "kgw"
-paraphrase = 0
-generate = 1
-eval_ppl = 1
-gpus = [1, 2, 3]
+watermark_type = "distilled"
+paraphrase = 1
+generate = 0
+eval_ppl = 0
+gpus = [6]
 max_workers = len(gpus)
-base_output_dir = "output/detector"
+base_output_dir = "output/paraphrasing_imp"
 steps = [0, 500, 1000, 1500, 2000, 2500, 3000]
 steps = [0]
 checkpoint_dir = "."
+embedding_models = ["Qwen3-Embedding-8B", "all-mpnet-base-v2"]
+embedding_models = ["embeddinggemma-300m", "multilingual-e5-large-instruct"]
+embedding_models = ["none"]
+# embedding_models = ["none"]
+
 # ==== Watermark-specific Params ====
 k = gamma = delta = distributions = gaussmark_configs = None
 
 if watermark_type == "mb" or watermark_type == "mb_binom" or watermark_type == "mb_discrete":
-    checkpoint_dir = "./lora_targeted"
-    k = [235]
+    # checkpoint_dir = "./lora_targeted"
+    k = [255]
     gamma = [0.25]
-    delta = [1.0]
+    delta = [1.4]
 
 elif watermark_type == "noise":
     delta = [1.25]
@@ -77,10 +84,11 @@ def build_jobs_mb():
     return [
         (gpu, {
             'k': k_val, 'gamma': g, 'delta': d,
-            'dataset': dataset, 'model': model, 'seed': seed, 'step': step
+            'dataset': dataset, 'model': model, 'seed': seed, 'step': step,
+            'embedding_model': embedding_model
         })
-        for gpu, (k_val, g, d, dataset, model, seed, step) in enumerate(
-            itertools.product(k, gamma, delta, datasets, models, seeds, steps))
+        for gpu, (k_val, g, d, dataset, model, seed, step, embedding_model) in enumerate(
+            itertools.product(k, gamma, delta, datasets, models, seeds, steps, embedding_models))
     ]
 
 
@@ -89,10 +97,11 @@ def build_jobs_noise():
         (gpu, {
             'k': 0, 'gamma': 0, 'delta': d,
             'distribution': dist,
-            'dataset': dataset, 'model': model, 'seed': seed
+            'dataset': dataset, 'model': model, 'seed': seed,
+            'embedding_model': embedding_model
         })
-        for gpu, (d, dist, dataset, model, seed) in enumerate(
-            itertools.product(delta, distributions, datasets, models, seeds))
+        for gpu, (d, dist, dataset, model, seed, embedding_model) in enumerate(
+            itertools.product(delta, distributions, datasets, models, seeds, embedding_models))
     ]
 
 
@@ -100,10 +109,11 @@ def build_jobs_kgw():
     return [
         (gpu, {
             'k': 0, 'gamma': g, 'delta': d,
-            'dataset': dataset, 'model': model, 'seed': seed
+            'dataset': dataset, 'model': model, 'seed': seed,
+            'embedding_model': embedding_model
         })
-        for gpu, (g, d, dataset, model, seed) in enumerate(
-            itertools.product(gamma, delta, datasets, models, seeds))
+        for gpu, (g, d, dataset, model, seed, embedding_model) in enumerate(
+            itertools.product(gamma, delta, datasets, models, seeds, embedding_models))
     ]
 
 
@@ -111,10 +121,11 @@ def build_jobs_distilled():
     return [
         (gpu, {
             'k': 0, 'gamma': 0.25, 'delta': 0,
-            'dataset': dataset, 'model': model, 'seed': seed, 'step': step
+            'dataset': dataset, 'model': model, 'seed': seed, 'step': step,
+            'embedding_model': embedding_model
         })
-        for gpu, (dataset, model, seed, step) in enumerate(
-            itertools.product(datasets, models, seeds, steps))
+        for gpu, (dataset, model, seed, step, embedding_model) in enumerate(
+            itertools.product(datasets, models, seeds, steps, embedding_models))
     ]
 
 
@@ -123,10 +134,11 @@ def build_jobs_gaussmark():
         (gpu, {
             'k': 0, 'gamma': 0, 'delta': 0,
             'dataset': dataset, 'model': model, 'seed': seed,
-            'target_param_name': layer, 'sigma': sigma, 'step': step
+            'target_param_name': layer, 'sigma': sigma, 'step': step,
+            'embedding_model': embedding_model
         })
-        for gpu, ((layer, sigma), dataset, model, seed, step) in enumerate(
-            itertools.product(gaussmark_configs, datasets, models, seeds, steps))
+        for gpu, ((layer, sigma), dataset, model, seed, step, embedding_model) in enumerate(
+            itertools.product(gaussmark_configs, datasets, models, seeds, steps, embedding_models))
     ]
 
 
@@ -135,10 +147,11 @@ def build_jobs_rl():
         (gpu, {
             'k': 0, 'gamma': 0, 'delta': 0,
             'dataset': dataset, 'model': model, 'seed': seed,
-            'rl_model_path': rl_model_path
+            'rl_model_path': rl_model_path,
+            'embedding_model': embedding_model
         })
-        for gpu, (dataset, model, seed) in enumerate(
-            itertools.product(datasets, models, seeds))
+        for gpu, (dataset, model, seed, embedding_model) in enumerate(
+            itertools.product(datasets, models, seeds, embedding_models))
     ]
 
 
@@ -148,10 +161,11 @@ def build_jobs_binoc():
             'k': 0, 'gamma': 0, 'delta': 0,
             'dataset': dataset, 'model': model, 'seed': seed,
             'performer_lora_path': binoc_performer_lora_path,
-            'observer_lora_path': binoc_observer_lora_path
+            'observer_lora_path': binoc_observer_lora_path,
+            'embedding_model': embedding_model
         })
-        for gpu, (dataset, model, seed) in enumerate(
-            itertools.product(datasets, models, seeds))
+        for gpu, (dataset, model, seed, embedding_model) in enumerate(
+            itertools.product(datasets, models, seeds, embedding_models))
     ]
 
 # ==== Shared Job Runner ====
@@ -164,14 +178,15 @@ def run_job_common(args_and_locks):
     model_suffix = param['model'].split("/")[-1]
     output_dir = f"{base_output_dir}/{model_suffix}"
     lock = gpu_locks[gpu]
-    num_samples = 1000 if param['dataset'] == "combined" else 500
+    num_samples = 1000 if param['dataset'] == "combined" else NUM_SAMPLES
+    embedding_model = param.get('embedding_model', 'all-mpnet-base-v2')
+    semalign = 0 if embedding_model == "none" else 1
     cmd = [
         './scripts/test_watermarking.sh',
         '--gamma', str(param.get('gamma', 0)),
         '--delta', str(param.get('delta', 0)),
         '--k', str(param.get('k', 0)),
         '--seed', str(param['seed']),
-        '--num_samples', '500',
         '--paraphrase', str(paraphrase),
         '--generate', str(generate),
         '--eval_ppl', str(eval_ppl),
@@ -188,7 +203,9 @@ def run_job_common(args_and_locks):
         '--binoc_performer_lora_path', param.get('performer_lora_path', '.'),
         '--binoc_observer_lora_path', param.get('observer_lora_path', '.'),
         '--checkpoint_dir', checkpoint_dir,
-        '--step', str(param.get('step', 0))
+        '--step', str(param.get('step', 0)),
+        '--semalign', str(semalign),
+        '--embedding_model', embedding_model
     ]
 
     with lock:
@@ -201,6 +218,7 @@ def run_job_common(args_and_locks):
             env['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
             env['CUDA_CACHE_DISABLE'] = '1'
 
+            print(f"Executing command: {' '.join(cmd)}")
             process = subprocess.Popen(
                 cmd,
                 env=env,

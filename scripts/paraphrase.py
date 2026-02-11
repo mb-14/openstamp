@@ -28,7 +28,7 @@ class DipperParaphraser(object):
         time1 = time.time()
         self.tokenizer = T5Tokenizer.from_pretrained('google/t5-v1_1-xxl')
         self.model = T5ForConditionalGeneration.from_pretrained(
-            model, device_map="auto")
+            model, device_map="auto", torch_dtype=torch.bfloat16)
         if verbose:
             print(f"{model} model loaded in {time.time() - time1}")
         self.model.eval()
@@ -79,7 +79,6 @@ class DipperParaphraser(object):
                 outputs = self.tokenizer.batch_decode(
                     model_outputs, skip_special_tokens=True)
                 del final_input, model_outputs
-                torch.cuda.empty_cache()
             prefix += " " + outputs[0]
             output_text += " " + outputs[0]
 

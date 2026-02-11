@@ -27,7 +27,7 @@ def get_dataloader(dataset_path: str, batch_size: int, total_samples: int):
     tensor = torch.load(path)
     if total_samples > 0:
         tensor = tensor[:total_samples]
-    data = TensorDataset(torch.load(path))
+    data = TensorDataset(tensor)
     dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, pin_memory=True)
     return dataloader
 

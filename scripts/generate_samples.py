@@ -63,6 +63,10 @@ def parse_args():
                         help="Directory containing the LoRA checkpoints")
     parser.add_argument('--step', type=int, default=0,
                         help="Step of the LoRA checkpoint to load. If 0, no LoRA is applied.")
+    parser.add_argument('--semalign', type=int, default=1,
+                        help="Whether to use semantic alignment (1/0)")
+    parser.add_argument('--embedding_model', type=str, default="e5",
+                        help="Embedding model name for semantic alignment")
 
     args = parser.parse_args()
 
@@ -240,7 +244,10 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
     # Load final weights into a torch tensor
     dataset_suffix = "openwebtext"
     model_suffix = args.model_name.split("/")[-1]
-    final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{args.k}.pth"
+    if args.semalign:
+        final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{args.k}_semalign_{args.embedding_model}.pth"
+    else:
+        final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{args.k}.pth"
     final_weight = torch.load(final_matrix_path)
     mb_mark = MbMark.mb(
         delta=args.delta,
@@ -367,6 +374,8 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
         "hash_key": args.hash_key,
         "n_clusters": final_weight.size(0),
         "unembedding_param_name": "lm_head",
+        "semalign": args.semalign,
+        "embedding_model": args.embedding_model if args.semalign else None,
     }
 elif args.watermark == "gaussmark":
     config = {
