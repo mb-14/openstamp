@@ -16,29 +16,30 @@ models = ["meta-llama/Llama-2-7b-hf"]
 datasets = ["arxiv", "wikipedia", "booksum"]
 datasets = ["realnewslike"]
 # Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc
-watermark_type = "distilled"
+watermark_type = "mb"
 paraphrase = 1
 generate = 0
 eval_ppl = 0
-gpus = [6]
+gpus = [4, 5]
 max_workers = len(gpus)
-base_output_dir = "output/paraphrasing_imp"
+base_output_dir = "output/seltorch"
 steps = [0, 500, 1000, 1500, 2000, 2500, 3000]
 steps = [0]
 checkpoint_dir = "."
-embedding_models = ["Qwen3-Embedding-8B", "all-mpnet-base-v2"]
-embedding_models = ["embeddinggemma-300m", "multilingual-e5-large-instruct"]
-embedding_models = ["none"]
-# embedding_models = ["none"]
+selector_matrix_dirs = [
+    # Update these paths per experiment.
+    "saved_models_new/openwebtext_Llama-2-7b-hf/selector_matrix_k255_semalign_ridge_Qwen3-Embedding-8B",
+    "saved_models_new/openwebtext_Llama-2-7b-hf/selector_matrix_k256_semalign_contrastive_Qwen3-Embedding-8B",
+    "saved_models_new/openwebtext_Llama-2-7b-hf/selector_matrix_k250"
+]
 
 # ==== Watermark-specific Params ====
-k = gamma = delta = distributions = gaussmark_configs = None
+gamma = delta = distributions = gaussmark_configs = None
 
 if watermark_type == "mb" or watermark_type == "mb_binom" or watermark_type == "mb_discrete":
     # checkpoint_dir = "./lora_targeted"
-    k = [255]
     gamma = [0.25]
-    delta = [1.4]
+    delta = [1.0]
 
 elif watermark_type == "noise":
     delta = [1.25]
@@ -64,11 +65,11 @@ elif watermark_type == "gaussmark":
     gaussmark_configs = [
         ("model.layers.20.mlp.up_proj.weight", 0.005)
     ]
-    
+
     gaussmark_configs = [
         ("model.layers.27.mlp.up_proj.weight", 0.04)
     ]
-  
+
 elif watermark_type == "rl":
     seeds = [15485863]
     base_dir = "/pool.ssd/users/miroojin/watermarking_rl"
@@ -83,89 +84,83 @@ elif watermark_type == "binoc":
 def build_jobs_mb():
     return [
         (gpu, {
-            'k': k_val, 'gamma': g, 'delta': d,
+            'gamma': g, 'delta': d,
             'dataset': dataset, 'model': model, 'seed': seed, 'step': step,
-            'embedding_model': embedding_model
+            'selector_matrix_dir': selector_matrix_dir,
         })
-        for gpu, (k_val, g, d, dataset, model, seed, step, embedding_model) in enumerate(
-            itertools.product(k, gamma, delta, datasets, models, seeds, steps, embedding_models))
+        for gpu, (g, d, dataset, model, seed, step, selector_matrix_dir) in enumerate(
+            itertools.product(gamma, delta, datasets, models, seeds, steps, selector_matrix_dirs))
     ]
 
 
 def build_jobs_noise():
     return [
         (gpu, {
-            'k': 0, 'gamma': 0, 'delta': d,
+            'gamma': 0, 'delta': d,
             'distribution': dist,
-            'dataset': dataset, 'model': model, 'seed': seed,
-            'embedding_model': embedding_model
+            'dataset': dataset, 'model': model, 'seed': seed
         })
-        for gpu, (d, dist, dataset, model, seed, embedding_model) in enumerate(
-            itertools.product(delta, distributions, datasets, models, seeds, embedding_models))
+        for gpu, (d, dist, dataset, model, seed) in enumerate(
+            itertools.product(delta, distributions, datasets, models, seeds))
     ]
 
 
 def build_jobs_kgw():
     return [
         (gpu, {
-            'k': 0, 'gamma': g, 'delta': d,
-            'dataset': dataset, 'model': model, 'seed': seed,
-            'embedding_model': embedding_model
+            'gamma': g, 'delta': d,
+            'dataset': dataset, 'model': model, 'seed': seed
         })
-        for gpu, (g, d, dataset, model, seed, embedding_model) in enumerate(
-            itertools.product(gamma, delta, datasets, models, seeds, embedding_models))
+        for gpu, (g, d, dataset, model, seed) in enumerate(
+            itertools.product(gamma, delta, datasets, models, seeds))
     ]
 
 
 def build_jobs_distilled():
     return [
         (gpu, {
-            'k': 0, 'gamma': 0.25, 'delta': 0,
-            'dataset': dataset, 'model': model, 'seed': seed, 'step': step,
-            'embedding_model': embedding_model
+            'gamma': 0.25, 'delta': 0,
+            'dataset': dataset, 'model': model, 'seed': seed, 'step': step
         })
-        for gpu, (dataset, model, seed, step, embedding_model) in enumerate(
-            itertools.product(datasets, models, seeds, steps, embedding_models))
+        for gpu, (dataset, model, seed, step) in enumerate(
+            itertools.product(datasets, models, seeds, steps))
     ]
 
 
 def build_jobs_gaussmark():
     return [
         (gpu, {
-            'k': 0, 'gamma': 0, 'delta': 0,
+            'gamma': 0, 'delta': 0,
             'dataset': dataset, 'model': model, 'seed': seed,
-            'target_param_name': layer, 'sigma': sigma, 'step': step,
-            'embedding_model': embedding_model
+            'target_param_name': layer, 'sigma': sigma, 'step': step
         })
-        for gpu, ((layer, sigma), dataset, model, seed, step, embedding_model) in enumerate(
-            itertools.product(gaussmark_configs, datasets, models, seeds, steps, embedding_models))
+        for gpu, ((layer, sigma), dataset, model, seed, step) in enumerate(
+            itertools.product(gaussmark_configs, datasets, models, seeds, steps))
     ]
 
 
 def build_jobs_rl():
     return [
         (gpu, {
-            'k': 0, 'gamma': 0, 'delta': 0,
+            'gamma': 0, 'delta': 0,
             'dataset': dataset, 'model': model, 'seed': seed,
-            'rl_model_path': rl_model_path,
-            'embedding_model': embedding_model
+            'rl_model_path': rl_model_path
         })
-        for gpu, (dataset, model, seed, embedding_model) in enumerate(
-            itertools.product(datasets, models, seeds, embedding_models))
+        for gpu, (dataset, model, seed) in enumerate(
+            itertools.product(datasets, models, seeds))
     ]
 
 
 def build_jobs_binoc():
     return [
         (gpu, {
-            'k': 0, 'gamma': 0, 'delta': 0,
+            'gamma': 0, 'delta': 0,
             'dataset': dataset, 'model': model, 'seed': seed,
             'performer_lora_path': binoc_performer_lora_path,
-            'observer_lora_path': binoc_observer_lora_path,
-            'embedding_model': embedding_model
+            'observer_lora_path': binoc_observer_lora_path
         })
-        for gpu, (dataset, model, seed, embedding_model) in enumerate(
-            itertools.product(datasets, models, seeds, embedding_models))
+        for gpu, (dataset, model, seed) in enumerate(
+            itertools.product(datasets, models, seeds))
     ]
 
 # ==== Shared Job Runner ====
@@ -179,13 +174,11 @@ def run_job_common(args_and_locks):
     output_dir = f"{base_output_dir}/{model_suffix}"
     lock = gpu_locks[gpu]
     num_samples = 1000 if param['dataset'] == "combined" else NUM_SAMPLES
-    embedding_model = param.get('embedding_model', 'all-mpnet-base-v2')
-    semalign = 0 if embedding_model == "none" else 1
+    selector_matrix_dir = param.get('selector_matrix_dir', '')
     cmd = [
         './scripts/test_watermarking.sh',
         '--gamma', str(param.get('gamma', 0)),
         '--delta', str(param.get('delta', 0)),
-        '--k', str(param.get('k', 0)),
         '--seed', str(param['seed']),
         '--paraphrase', str(paraphrase),
         '--generate', str(generate),
@@ -204,8 +197,7 @@ def run_job_common(args_and_locks):
         '--binoc_observer_lora_path', param.get('observer_lora_path', '.'),
         '--checkpoint_dir', checkpoint_dir,
         '--step', str(param.get('step', 0)),
-        '--semalign', str(semalign),
-        '--embedding_model', embedding_model
+        '--selector_matrix_dir', selector_matrix_dir
     ]
 
     with lock:

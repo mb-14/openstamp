@@ -8,14 +8,13 @@ stand-alone script.
 
 import argparse
 import os
-from typing import List
+from typing import List, Union, Optional
 
 import einops
 import torch
 from datasets import load_dataset
 from transformers import AutoTokenizer
 from tqdm import tqdm
-from typing import List, Union
 torch.manual_seed(42)
 
 
@@ -72,6 +71,41 @@ def prepare_tokenizer(model_name: str):
 
 def filter_length(example, tokenizer, max_seq_len: int) -> bool:
     return len(tokenizer(example["text"])["input_ids"]) >= max_seq_len
+
+
+def get_dolci_text(example) -> list | None:
+    """Extract individual assistant messages from Dolci dataset. Returns None if no assistant messages."""
+    assistant_contents = [
+        msg["content"] 
+        for msg in example["messages"] 
+        if msg.get("role") == "assistant" and msg.get("content")
+    ]
+    
+    return assistant_contents if assistant_contents else None
+
+
+def process_dolci_dataset(dataset):
+    """Extract and explode assistant messages from Dolci dataset. Filters out samples without assistant messages."""
+    from datasets import Dataset
+    
+    def extract_assistant_text(example):
+        texts = get_dolci_text(example)
+        return {"text": texts}
+    
+    dataset = dataset.map(extract_assistant_text, remove_columns=dataset.column_names, batched=False)
+    
+    # Convert to regular dataset and explode, filtering out None/empty values
+    data_list = []
+    for example in dataset:
+        if example["text"]:  # Skip if None or empty list
+            for text in example["text"]:
+                data_list.append({"text": text})
+    
+    if not data_list:
+        raise RuntimeError("No assistant messages found in Dolci dataset after extraction and filtering.")
+    
+    print(f"Extracted {len(data_list)} assistant messages from Dolci dataset")
+    return Dataset.from_dict({"text": [ex["text"] for ex in data_list]})
 
 
 def to_right_padding(input_ids: torch.Tensor, pad_token_id: int, padding_side: str) -> torch.Tensor:
@@ -165,6 +199,12 @@ def collect_prefixes(args: argparse.Namespace, tokenizer) -> torch.Tensor:
         streaming=True,
         trust_remote_code=True,
     )
+    
+    # For Dolci dataset, extract and explode assistant messages
+    if "allenai/Dolci-Instruct-SFT" in args.dataset_name:
+        dataset = process_dolci_dataset(dataset)
+    
+    # Original logic: filter by length, shuffle, and take samples
     dataset = dataset.filter(lambda example: filter_length(example, tokenizer, args.max_seq_len))
     dataset = dataset.shuffle(seed=42).take(args.total * args.batch_size)
 

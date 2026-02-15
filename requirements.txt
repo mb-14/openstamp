@@ -16,3 +16,4 @@ wandb>=0.21.0
 ipywidgets
 matplotlib
 einops
+safetensors

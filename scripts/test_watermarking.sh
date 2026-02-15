@@ -13,21 +13,15 @@ model="meta-llama/Llama-2-7b-hf"
 sigma=0.018
 eval_ppl=1
 target_param_name="lm_head.weight"
-K=128
 rl_model_path="."
 binoc_performer_lora_path="."
 binoc_observer_lora_path="."
 step=0
 checkpoint_dir="."
-semalign=1
-embedding_model="e5"
+selector_matrix_dir=""
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
-  --k)
-    K="$2"
-    shift
-    ;;
   --delta)
     DELTA="$2"
     shift
@@ -104,12 +98,8 @@ while [[ "$#" -gt 0 ]]; do
     step="$2"
     shift
     ;;
-  --semalign)
-    semalign="$2"
-    shift
-    ;;
-  --embedding_model)
-    embedding_model="$2"
+  --selector_matrix_dir)
+    selector_matrix_dir="$2"
     shift
     ;;
   *)
@@ -137,11 +127,33 @@ timestamp=$(date +"%Y%m%d_%H%M%S_%3N")
 if [ "$watermark" == "gaussmark" ]; then
   output_file="${output_dir}/output_seed=${SEED}_sigma=${sigma}_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "mb" ] || [ "$watermark" == "mb_binom" ] || [ "$watermark" == "mb_discrete" ]; then
-  if [ "$semalign" -eq 1 ]; then
-    output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}_semalign_embedding=${embedding_model}"
-  else
-    output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${K}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}"
+  if [ -z "$selector_matrix_dir" ]; then
+    echo "For MB watermarking, --selector_matrix_dir is required."
+    exit 1
   fi
+  selector_metrics_path="${selector_matrix_dir%/}/selector_metrics.json"
+  k=""
+  sem_align="false"
+  embedding_model=""
+  align_method=""
+  if [ -f "$selector_metrics_path" ]; then
+    k=$(jq -r '.k // empty' "$selector_metrics_path")
+    sem_align=$(jq -r '.sem_align // false' "$selector_metrics_path")
+    embedding_model=$(jq -r '.embedding_model // empty' "$selector_metrics_path")
+    align_method=$(jq -r '.align_method // empty' "$selector_metrics_path")
+  fi
+  if [ -z "$k" ]; then
+    echo "Missing k in selector metrics JSON: $selector_metrics_path"
+    exit 1
+  fi
+
+  suffix=""
+  if [ "$sem_align" = "true" ] && [ -n "$embedding_model" ] && [ -n "$align_method" ]; then
+    suffix="_semalign_${align_method}_embedding=${embedding_model}"
+  fi
+
+  output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${k}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}${suffix}"
+  K="$k"
 elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ]; then
   output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "rl" ] || [ "$watermark" == "binoc" ] || [ "$watermark" == "distilled" ]; then
@@ -170,7 +182,6 @@ if [ "$generate" -eq 1 ]; then
     --watermark $watermark \
     --model_name $model \
     --sigma $sigma \
-    --k $K \
     --target_param_name $target_param_name \
     --distribution $distribution \
     --rl_model_path $rl_model_path \
@@ -178,8 +189,7 @@ if [ "$generate" -eq 1 ]; then
     --binoc_observer_lora_path $binoc_observer_lora_path \
     --checkpoint_dir $checkpoint_dir \
     --step $step \
-    --semalign $semalign \
-    --embedding_model $embedding_model &>"$log_dir/generate_${timestamp}.log"
+    --selector_matrix_dir $selector_matrix_dir &>"$log_dir/generate_${timestamp}.log"
 fi
 
 # Generate paraphrases if PARAPHRASE is set to 1
@@ -193,8 +203,8 @@ if [ "$PARAPHRASE" -eq 1 ]; then
     --output_file $output_file \
     --lex 20 --order 0 &>"$log_dir/paraphrase_l20_${timestamp}.log"
 
-  # python scripts/paraphrase_llm.py \
-  #   --output_file $output_file --num_beams 3 &>"$log_dir/paraphrase_llm_${timestamp}.log"
+  python scripts/paraphrase_llm.py \
+    --output_file $output_file --num_beams 3 &>"$log_dir/paraphrase_llm_${timestamp}.log"
 fi
 
 MODEL=$model K=$K OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$timestamp.ipynb"

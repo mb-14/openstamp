@@ -5,6 +5,7 @@ from src.kgwmark import KGWMark
 from src.kgw_distilled import KGWDistilled
 import os
 import json
+from pathlib import Path
 from datasets import Dataset
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -51,8 +52,12 @@ def parse_args():
                         help="Standard deviation for GaussMark")
     parser.add_argument("--target_param_name", type=str,
                         default="model.layers.27.mlp.up_proj.weight",)
-    parser.add_argument("--k", type=int, default=16,
-                        help="Number of clusters for the selector matrix in MbMark")
+    parser.add_argument(
+        "--selector_matrix_dir",
+        type=str,
+        default=None,
+        help="Directory containing selector_matrix.pth and selector_metrics.json",
+    )
     parser.add_argument("--rl_model_path", type=str,
                         help="Local path to the RL model", default=None)
     parser.add_argument('--binoc_performer_lora_path', type=str,
@@ -63,10 +68,6 @@ def parse_args():
                         help="Directory containing the LoRA checkpoints")
     parser.add_argument('--step', type=int, default=0,
                         help="Step of the LoRA checkpoint to load. If 0, no LoRA is applied.")
-    parser.add_argument('--semalign', type=int, default=1,
-                        help="Whether to use semantic alignment (1/0)")
-    parser.add_argument('--embedding_model', type=str, default="e5",
-                        help="Embedding model name for semantic alignment")
 
     args = parser.parse_args()
 
@@ -242,12 +243,18 @@ temperature = args.temperature
 
 if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
     # Load final weights into a torch tensor
-    dataset_suffix = "openwebtext"
-    model_suffix = args.model_name.split("/")[-1]
-    if args.semalign:
-        final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{args.k}_semalign_{args.embedding_model}.pth"
-    else:
-        final_matrix_path = f"saved_models/{dataset_suffix}_{model_suffix}/selector_matrix_k{args.k}.pth"
+    selector_metrics = None
+    selector_metrics_path = None
+    if not args.selector_matrix_dir:
+        raise ValueError(
+            "For MB watermarking, please provide --selector_matrix_dir."
+        )
+    selector_dir = Path(args.selector_matrix_dir)
+    final_matrix_path = selector_dir / "selector_matrix.pth"
+    selector_metrics_path = selector_dir / "selector_metrics.json"
+    if selector_metrics_path.exists():
+        with open(selector_metrics_path, "r") as f:
+            selector_metrics = json.load(f)
     final_weight = torch.load(final_matrix_path)
     mb_mark = MbMark.mb(
         delta=args.delta,
@@ -368,14 +375,20 @@ data = {
     "full_model_text": full_model_text
 }
 if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
+    semalign = bool(selector_metrics.get("sem_align", False)) if selector_metrics else False
+    embedding_model = selector_metrics.get("embedding_model") if selector_metrics else None
+    align_method = selector_metrics.get("align_method") if selector_metrics else None
     config = {
         "gamma": args.gamma,
         "delta": args.delta,
         "hash_key": args.hash_key,
         "n_clusters": final_weight.size(0),
         "unembedding_param_name": "lm_head",
-        "semalign": args.semalign,
-        "embedding_model": args.embedding_model if args.semalign else None,
+        "semalign": semalign,
+        "embedding_model": embedding_model if semalign else None,
+        "align_method": align_method if semalign else None,
+        "selector_matrix_dir": str(selector_dir),
+        "selector_metrics_path": str(selector_metrics_path) if selector_metrics_path and selector_metrics_path.exists() else None,
     }
 elif args.watermark == "gaussmark":
     config = {

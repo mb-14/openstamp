@@ -7,6 +7,7 @@ from rich import print as rprint
 import random
 from collections import defaultdict
 from src.utils import load_model
+from safetensors.torch import save_file
 
 
 def infer_hidden_size_from_config(config):
@@ -169,6 +170,12 @@ if __name__ == "__main__":
     parser.add_argument("--validate", action="store_true")
     parser.add_argument("--total_samples", type=int, default=-1,
                         help="Number of samples to process from the dataset")
+    parser.add_argument(
+        "--save-format",
+        choices=["pt", "safetensors"],
+        default="pt",
+        help="Output format for hidden states.",
+    )
     args = parser.parse_args()
 
     torch.manual_seed(42)
@@ -229,8 +236,13 @@ if __name__ == "__main__":
         validate_hidden_states(
             model, tokenizer, all_input_ids, hidden_states, prefix_to_source=prefix_to_source, num_samples=args.batch_size)
 
-    out_path = os.path.join(
-        args.dataset_path, f"hidden_states.pt")
-    torch.save(hidden_states, out_path)
+    if args.save_format == "safetensors":
+        out_path = os.path.join(
+            args.dataset_path, "hidden_states.safetensors")
+        save_file({"hidden_states": hidden_states}, out_path)
+    else:
+        out_path = os.path.join(
+            args.dataset_path, "hidden_states.pt")
+        torch.save(hidden_states, out_path)
 
     rprint(f"[bold green]Saved hidden states to: {out_path}[/bold green]")
