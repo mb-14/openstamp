@@ -25,7 +25,7 @@ def parse_args():
 
     # Fixed defaults
     parser.add_argument('--prompt_length', type=int, default=50)
-    parser.add_argument('--max_tokens', type=int, default=200)
+    parser.add_argument('--max_tokens', type=int, default=350)
     parser.add_argument('--temperature', type=float, default=1.0)
     parser.add_argument('--top_k', type=int, default=0)
     parser.add_argument('--top_p', type=float, default=1.0)
@@ -118,7 +118,6 @@ else:
 set_seed(args.seed)
 
 
-
 if args.watermark == "rl":
     model_config = AutoConfig.from_pretrained(args.model_name)
     for key in ('dropout', 'attention_dropout', 'hidden_dropout', 'activation_dropout'):
@@ -126,12 +125,13 @@ if args.watermark == "rl":
             setattr(model_config, key, 0.0)
     model = AutoModelForCausalLM.from_pretrained(args.model_name,
                                                  config=model_config, device_map="auto", torch_dtype=torch.bfloat16).train()
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name,device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name, device_map="auto")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 else:
     model, tokenizer = load_model(args.model_name)
-                                              
+
 
 device = model.device
 if args.dataset == "combined":
@@ -166,11 +166,46 @@ def encode(example, field):
         return_tensors="pt"
     ).to(device)
 
+    prompt_text = tokenizer.batch_decode(
+        prompt["input_ids"], skip_special_tokens=True)[0]
+
+    if args.model_name == "microsoft/phi-4":
+        if not hasattr(tokenizer, "apply_chat_template"):
+            raise ValueError(
+                "Tokenizer does not support chat templates, but microsoft/phi-4 requires it.")
+        instruction = (
+            "Continue the text exactly from where it ends. "
+            "Do not add preambles, summaries, or extra commentary. "
+            "Output only the direct continuation.\n\n"
+            f"{prompt_text}\n\nContinuation:"
+        )
+        messages = [{"role": "user", "content": instruction}]
+        chat_prompt_text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        prompt_inputs = tokenizer.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            padding="max_length",
+            max_length=args.prompt_length + 100,
+            return_tensors="pt"
+        ).to(device)
+        input_ids = prompt_inputs.squeeze(0)
+        attention_mask = torch.ones_like(input_ids)
+    else:
+        input_ids = prompt["input_ids"].squeeze(0)
+        attention_mask = prompt["attention_mask"].squeeze(0)
+        chat_prompt_text = prompt_text
+
     return {
         "text": text,
-        "prompt_text": tokenizer.batch_decode(prompt["input_ids"], skip_special_tokens=True)[0],
-        "input_ids": prompt["input_ids"].squeeze(0),
-        "attention_mask": prompt["attention_mask"].squeeze(0),
+        "prompt_text": prompt_text,
+        "chat_prompt_text": chat_prompt_text,
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
         "text_completion": tokenizer.batch_decode(
             trunc_tokens["input_ids"][:, args.prompt_length:], skip_special_tokens=True)[0],
     }
@@ -220,6 +255,7 @@ dataloader = torch.utils.data.DataLoader(combined_dataset, batch_size=32)
 prompts = []
 human_text = []
 prompt_text = []
+chat_prompt_text = []
 full_human_text = []
 for batch in dataloader:
     if len(human_text) >= args.num_samples:
@@ -232,10 +268,12 @@ for batch in dataloader:
     prompts.append(batch)
     human_text.extend(batch["text_completion"])
     prompt_text.extend(batch["prompt_text"])
+    chat_prompt_text.extend(batch["chat_prompt_text"])
     full_human_text.extend(batch["text"])
 
 human_text = human_text[:args.num_samples]
 prompt_text = prompt_text[:args.num_samples]
+chat_prompt_text = chat_prompt_text[:args.num_samples]
 full_human_text = full_human_text[:args.num_samples]
 watermarked_model = None
 watermarked_processor = None
@@ -303,8 +341,10 @@ elif args.watermark == "rl":
     watermarked_model.eval()
 elif args.watermark == "binoc":
     if args.binoc_performer_lora_path is None:
-        raise ValueError("Please provide the path to the Binocular performer LoRA weights using --binoc_lora_path")
-    watermarked_model = PeftModel.from_pretrained(model, args.binoc_performer_lora_path)
+        raise ValueError(
+            "Please provide the path to the Binocular performer LoRA weights using --binoc_lora_path")
+    watermarked_model = PeftModel.from_pretrained(
+        model, args.binoc_performer_lora_path)
     watermarked_model.eval()
 
 if args.step > 0:
@@ -317,6 +357,14 @@ if args.step > 0:
 
 model_text = []
 full_model_text = []
+
+
+def strip_phi4_assistant_prefix(text: str) -> str:
+    if text.startswith("assistant"):
+        return text[len("assistant"):].lstrip()
+    return text
+
+
 for batch in tqdm(prompts):
     if len(model_text) >= args.num_samples:
         break
@@ -354,10 +402,21 @@ for batch in tqdm(prompts):
             )
 
         n_input_tokens = batch["input_ids"].shape[1]
-        model_text.extend(tokenizer.batch_decode(
-            outputs[:, n_input_tokens:], skip_special_tokens=True))
-        full_model_text.extend(tokenizer.batch_decode(
-            outputs, skip_special_tokens=True))
+        batch_continuations = tokenizer.batch_decode(
+            outputs[:, n_input_tokens:], skip_special_tokens=True)
+        if args.model_name == "microsoft/phi-4":
+            batch_continuations = [strip_phi4_assistant_prefix(
+                t) for t in batch_continuations]
+        model_text.extend(batch_continuations)
+        if args.model_name == "microsoft/phi-4":
+            batch_size = outputs.shape[0]
+            for i in range(batch_size):
+                full_model_text.append(
+                    f"{batch['prompt_text'][i]}{batch_continuations[i]}"
+                )
+        else:
+            full_model_text.extend(tokenizer.batch_decode(
+                outputs, skip_special_tokens=True))
 
 model_text = model_text[:args.num_samples]
 full_model_text = full_model_text[:args.num_samples]
@@ -370,14 +429,18 @@ with torch.no_grad():
 data = {
     "human_text": human_text,
     "prompt_text": prompt_text,
+    "chat_prompt_text": chat_prompt_text,
     "full_human_text": full_human_text,
     "model_text": model_text,
     "full_model_text": full_model_text
 }
 if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
-    semalign = bool(selector_metrics.get("sem_align", False)) if selector_metrics else False
-    embedding_model = selector_metrics.get("embedding_model") if selector_metrics else None
-    align_method = selector_metrics.get("align_method") if selector_metrics else None
+    semalign = bool(selector_metrics.get("sem_align", False)
+                    ) if selector_metrics else False
+    embedding_model = selector_metrics.get(
+        "embedding_model") if selector_metrics else None
+    align_method = selector_metrics.get(
+        "align_method") if selector_metrics else None
     config = {
         "gamma": args.gamma,
         "delta": args.delta,

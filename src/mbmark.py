@@ -156,7 +156,7 @@ class MbMark:
         return cls(model, tokenizer, unembedding_param_name, augmented_unembedding, mode)
 
     @staticmethod
-    def _make_watermarking_matrix(vocab_size, delta, gamma, seed, n_clusters):
+    def _make_watermarking_matrix(vocab_size, delta, gamma, seed, n_clusters, dtype=torch.bfloat16):
         def prf_lookup(cluster, seed):
             return seed * cluster
 
@@ -171,7 +171,7 @@ class MbMark:
             redlist_ids = vocab_permutation[greenlist_size:]
             return greenlist_ids, redlist_ids
 
-        matrix = torch.zeros(vocab_size, n_clusters)
+        matrix = torch.zeros(vocab_size, n_clusters, dtype=dtype)
         for i in range(n_clusters):
             greenlist_ids, _ = get_partition(i)
             matrix[greenlist_ids, i] = delta
