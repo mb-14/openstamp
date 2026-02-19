@@ -13,7 +13,6 @@ import os
 import sys
 import time
 from pathlib import Path
-from scalene import scalene_profiler
 
 
 # Use a non-interactive backend so scripts can run on headless machines.
@@ -133,7 +132,7 @@ def load_alignment_matrix(
         )
     print(f"Loading alignment matrix from {align_path}")
     W_align = torch.load(align_path)
-    return W_align.float()
+    return W_align
 
 
 def generate_rand_proj_labels(hidden_states: torch.Tensor, prf_key: int, k: int) -> torch.Tensor:
@@ -152,7 +151,7 @@ def generate_kmeans_labels(
         n_clusters=k,
         random_state=prf_key,
         init="k-means++",
-        max_no_improvement=20,
+        max_no_improvement=25,
         batch_size=8192 * 8,
         max_iter=100,
         reassignment_ratio=0.001,
@@ -481,6 +480,12 @@ def main() -> None:
     hidden_states = load_hidden_states(hidden_states_path, args.num_samples)
     t0 = _log_phase("load_hidden_states", t0)
     print(f"Loaded hidden states: {hidden_states.shape}")
+    # Shuffle with seed
+    generator = torch.Generator()
+    generator.manual_seed(args.seed)
+    perm = torch.randperm(hidden_states.size(0), generator=generator)
+    hidden_states = hidden_states[perm]
+
 
     # Load alignment matrix if semantic alignment is enabled
     W_align = None
@@ -488,7 +493,7 @@ def main() -> None:
     if args.sem_align:
         W_align = load_alignment_matrix(
             data_dir, args.embedding_model, args.align_method
-        )
+        ).to(dtype=hidden_states.dtype)
         print(f"Alignment matrix shape: {W_align.shape}")
         # Project hidden states to embedding space for clustering
         hidden_states_for_clustering = F.linear(hidden_states, W_align.T)
