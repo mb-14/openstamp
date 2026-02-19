@@ -25,7 +25,7 @@ def parse_args():
 
     # Fixed defaults
     parser.add_argument('--prompt_length', type=int, default=50)
-    parser.add_argument('--max_tokens', type=int, default=350)
+    parser.add_argument('--max_tokens', type=int, default=200)
     parser.add_argument('--temperature', type=float, default=1.0)
     parser.add_argument('--top_k', type=int, default=0)
     parser.add_argument('--top_p', type=float, default=1.0)
@@ -411,9 +411,9 @@ for batch in tqdm(prompts):
         if args.model_name == "microsoft/phi-4":
             batch_size = outputs.shape[0]
             for i in range(batch_size):
-                full_model_text.append(
-                    f"{batch['prompt_text'][i]}{batch_continuations[i]}"
-                )
+                full_model_text.append(" " +
+                                       f"{batch['prompt_text'][i]}{batch_continuations[i]}"
+                                       )
         else:
             full_model_text.extend(tokenizer.batch_decode(
                 outputs, skip_special_tokens=True))
