@@ -208,7 +208,7 @@ def parse_args():
     parser.add_argument(
         "--contrastive-lr",
         type=float,
-        default=1e-4,
+        default=1e-5,
         help="Learning rate for contrastive training",
     )
     parser.add_argument(
