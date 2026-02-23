@@ -18,6 +18,7 @@ class CustomArgs:
     selector_matrix_dir: str
     watermark_seed: int
     watermark_type: str = "openstamp"
+    target_param_config: int = 0
 
 
 
@@ -96,7 +97,6 @@ def main():
                           target_param_name=target_param_name, tokenizer=tokenizer, model=model)
         model = gaussmark.model
 
-    
     #! use the fineweb-edu dataset
     # dataset = load_dataset("HuggingFaceFW/fineweb-edu", name="sample-10BT", split="train", streaming=False)
 
@@ -106,14 +106,21 @@ def main():
     dataset = dataset.remove_columns([col for col in column_names if col != "text"])
     dataset = tokenize_dataset(dataset, tokenizer, sequence_length=min(512, tokenizer.model_max_length))
 
+    if custom_args.target_param_config == 2:
+        raise NotImplementedError("Full fine-tuning of unembedding layer is not implemented yet.")
+
+    target_modules = ["v_proj", "k_proj", "o_proj", "q_proj", "gate_proj", "up_proj", "down_proj"]
     #! lora config
+    if custom_args.target_param_config == 1:
+        target_modules.append("lm_head")
+
     lora_config = LoraConfig(
         r=16,
         lora_alpha=32,
         lora_dropout=0.1,
         fan_in_fan_out=False,
         bias="none",
-        target_modules=["v_proj", "k_proj", "o_proj", "q_proj", "gate_proj", "up_proj", "down_proj"],
+        target_modules=target_modules
     )
 
     # for param in model.parameters():

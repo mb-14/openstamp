@@ -5,9 +5,15 @@ base_selector_dir="/data/users/miroojin/saksham/watermark-adapters/saved_models_
 
 # --- 1. Parse Arguments ---
 watermark="openstamp"
-while getopts "w:" opt; do
+target_config="0" # Default value
+# 0 - Lora on all internal linear layers
+# 1 - Lora on all internal linear layers + unembedding layer
+# 2 - Full fine-tuning (no LoRA) on unembedding layer only
+
+while getopts "w:t:" opt; do
     case $opt in
         w) watermark="$OPTARG" ;;
+        t) target_config="$OPTARG" ;;
         *) exit 1 ;;
     esac
 done
@@ -15,30 +21,39 @@ done
 # --- 2. Validation ---
 case "$watermark" in
     "openstamp"|"gaussmark"|"kgw_distilled") echo "Watermark: $watermark" ;;
-    *) echo "Invalid watermark type. Use: openstamp, gaussmark, or kgw_distilled"; exit 1 ;;
+    *) echo "Error: Invalid watermark type."; exit 1 ;;
+esac
+
+case "$target_config" in
+    0|1|2) echo "Target Param Config: $target_config" ;;
+    *) echo "Error: target_param_config must be 0, 1, or 2"; exit 1 ;;
 esac
 
 # --- 3. Define the Training Function ---
-# Usage: run_train <run_name> <model_path> <selector_dir> <watermark_type>
 run_train() {
-    local run_name=$1
+    local base_name=$1
     local model_path=$2
     local selector_dir=$3
     local w_type=$4
 
+    # Accessing the global $target_config to create suffixes
+    local final_run_name="${base_name}_config${target_config}"
+
     unset WANDB_RUN_NAME WANDB_RUN_ID
-    export WANDB_RUN_NAME="$run_name"
+    export WANDB_RUN_NAME="$final_run_name"
     
     echo "------------------------------------------------"
     echo "Running training for: ${WANDB_RUN_NAME}"
+    echo "Target Config: ${target_config}"
     echo "------------------------------------------------"
 
     accelerate launch --config_file finetuning/train_z1.yaml -m finetuning.run_trainer_finetune \
         --model_name_or_path "$model_path" \
         --selector_matrix_dir "$selector_dir" \
         --watermark_type "$w_type" \
-        --run_name "$run_name" \
-        --output_dir "finetuning/colm/$run_name" \
+        --target_param_config "$target_config" \
+        --run_name "$final_run_name" \
+        --output_dir "finetuning/colm/$final_run_name" \
         --watermark_seed 15485863 \
         --max_steps 2500 \
         --num_train_epochs 1 \
@@ -64,7 +79,7 @@ if [ "$watermark" == "gaussmark" ]; then
     run_train "gaussmark_Llama-2-7b-hf" "meta-llama/Llama-2-7b-hf" "" "gaussmark"
 
 elif [ "$watermark" == "kgw_distilled" ]; then
-    run_train "kgw_distilled_Llama-2-7b-hf" "cygu/llama-2-7b-logit-watermark-distill-kgw-k0-gamma0.25-delta2" "" "kgw_distilled"
+    run_train "kgw_distilled_Llama-2-7b-hf" "cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2" "" "kgw_distilled"
 
 elif [ "$watermark" == "openstamp" ]; then
     selector_matrices=(
