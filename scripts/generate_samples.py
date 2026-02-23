@@ -349,7 +349,7 @@ elif args.watermark == "binoc":
 
 if args.step > 0:
     lora_ckpt_path = os.path.join(
-        args.checkpoint_dir, f"checkpoint-step-{args.step}")
+        args.checkpoint_dir, f"checkpoint-{args.step}")
 
     peft_model = PeftModel.from_pretrained(watermarked_model, lora_ckpt_path)
     peft_model.merge_and_unload()
