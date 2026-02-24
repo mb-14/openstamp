@@ -107,28 +107,30 @@ def main():
     dataset = tokenize_dataset(dataset, tokenizer, sequence_length=min(512, tokenizer.model_max_length))
 
     if custom_args.target_param_config == 2:
-        raise NotImplementedError("Full fine-tuning of unembedding layer is not implemented yet.")
-
-    target_modules = ["v_proj", "k_proj", "o_proj", "q_proj", "gate_proj", "up_proj", "down_proj"]
-    #! lora config
-    if custom_args.target_param_config == 1:
-        target_modules.append("lm_head")
-
-    lora_config = LoraConfig(
-        r=16,
-        lora_alpha=32,
-        lora_dropout=0.1,
-        fan_in_fan_out=False,
-        bias="none",
-        target_modules=target_modules
-    )
-
-    # for param in model.parameters():
-    #     param.requires_grad = False
+        for param in model.parameters():
+            param.requires_grad = False
         
-    # # Unfreeze lm_head parameters
-    # for param in model.lm_head.parameters():
-    #     param.requires_grad = True
+        # Unfreeze lm_head parameters
+        for param in model.lm_head.parameters():
+            param.requires_grad = True
+        
+        lora_config = None
+
+    else:    
+        target_modules = ["v_proj", "k_proj", "o_proj", "q_proj", "gate_proj", "up_proj", "down_proj"]
+        #! lora config
+        if custom_args.target_param_config == 1:
+            target_modules.append("lm_head")
+
+        lora_config = LoraConfig(
+            r=16,
+            lora_alpha=32,
+            lora_dropout=0.1,
+            fan_in_fan_out=False,
+            bias="none",
+            target_modules=target_modules
+        )
+
 
     #! train the model
     trainer = SFTTrainer(
