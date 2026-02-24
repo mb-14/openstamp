@@ -75,7 +75,7 @@ def train_contrastive_alignment(
     val_split=0.2,
     seed=42,
 ):
-    model = LinearProjector(hidden_states.shape[1], embeddings.shape[1]).to(device)
+    model = LinearProjector(hidden_states.shape[1], hidden_states.shape[1]).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
     dataset = TensorDataset(hidden_states, embeddings)
