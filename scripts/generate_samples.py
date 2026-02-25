@@ -350,10 +350,13 @@ elif args.watermark == "binoc":
 if args.step > 0:
     lora_ckpt_path = os.path.join(
         args.checkpoint_dir, f"checkpoint-{args.step}")
-
-    peft_model = PeftModel.from_pretrained(watermarked_model, lora_ckpt_path)
-    peft_model.merge_and_unload()
-    watermarked_model = peft_model.eval().to(device)
+    if args.checkpoint_dir.endswith("config2"):
+        # Config 2 is full-finetuning, so we load the entire model
+        watermarked_model = AutoModelForCausalLM.from_pretrained(lora_ckpt_path, device_map="auto", torch_dtype=torch.bfloat16).eval()
+    else:
+        peft_model = PeftModel.from_pretrained(watermarked_model, lora_ckpt_path)
+        peft_model.merge_and_unload()
+        watermarked_model = peft_model.eval().to(device)
 
 model_text = []
 full_model_text = []
