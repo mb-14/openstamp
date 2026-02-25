@@ -3,6 +3,7 @@ from src.mbmark import MbMark, Mode
 from src.gaussmark import GaussMark
 from src.kgwmark import KGWMark
 from src.kgw_distilled import KGWDistilled
+from src.unigramwm import Unigram
 import os
 import json
 from pathlib import Path
@@ -40,7 +41,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "mb_binom", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl", "binoc", "mb_discrete"],)
+                        default="mb", choices=["mb", "mb_binom", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl", "binoc", "mb_discrete", "unigram"],)
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
@@ -332,6 +333,9 @@ elif args.watermark == "kgw" or args.watermark == "kgw_llr":
     watermark = KGWMark(model=model, tokenizer=tokenizer, gamma=args.gamma,
                         delta=args.delta, hash_key=args.hash_key, kgw_device=kgw_device)
     watermarked_processor = watermark.watermark
+elif args.watermark == "unigram":
+    watermark = Unigram(gamma=args.gamma, delta=args.delta, hash_key=args.hash_key, tokenizer=tokenizer)
+    watermarked_processor = watermark.watermark
 elif args.watermark == "rl":
     watermarked_model = convert_linear_layer_to_lora(
         model, part_module_name='decoder.layers.', lora_dim=128)
@@ -481,6 +485,12 @@ elif args.watermark == "kgw" or args.watermark == "kgw_llr":
         "kgw_device": str(kgw_device),
         "gamma": args.gamma,
         "delta": args.delta,
+    }
+elif args.watermark == "unigram":
+    config = {
+        "gamma": args.gamma,
+        "delta": args.delta,
+        "hash_key": args.hash_key,
     }
 elif args.watermark == "rl":
     config = {

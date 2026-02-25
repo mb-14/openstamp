@@ -10,56 +10,70 @@ NUM_SAMPLES = 500
 # ==== Common Config ====
 seeds = [15485863, 12997009, 22983996]
 # seeds = [15485863]
-models = ["meta-llama/Llama-2-7b-hf"]
-# models = ["google/gemma-2-27b"]
-# models = ["mistralai/Mistral-7B-v0.3"]
-datasets = ["arxiv", "wikipedia", "booksum"]
+# models = ["allenai/Olmo-3-1025-7B", "HuggingFaceTB/SmolLM2-1.7B", "Qwen/Qwen2.5-7B", "microsoft/phi-4", "mistralai/Mistral-7B-v0.3"]
+# datasets = ["arxiv", "wikipedia", "booksum"]
 datasets = ["realnewslike"]
-# Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc
-watermark_type = "mb"
+# Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc, unigram
+watermark_type = "unigram"
 paraphrase = 1
-generate = 0
-eval_ppl = 0
+generate = 1
+eval_ppl = 1
 gpus = [4, 5]
 max_workers = len(gpus)
-base_output_dir = "output/seltorch"
-steps = [0, 500, 1000, 1500, 2000, 2500, 3000]
+base_output_dir = "output/unigram"
+steps = [0, 500, 1000, 1500, 2000, 2500]
+CHECKPOINT_DIR_SUFFIX = "_config2"
 steps = [0]
-checkpoint_dir = "."
-selector_matrix_dirs = [
-    # Update these paths per experiment.
-    "saved_models_new/openwebtext_Llama-2-7b-hf/selector_matrix_k255_semalign_ridge_Qwen3-Embedding-8B",
-    "saved_models_new/openwebtext_Llama-2-7b-hf/selector_matrix_k256_semalign_contrastive_Qwen3-Embedding-8B",
-    "saved_models_new/openwebtext_Llama-2-7b-hf/selector_matrix_k250"
+
+# Base directory for saved models
+SAVED_MODELS_BASE_DIR = "saved_models_new"
+CHECKPOINT_BASE_DIR = "./finetuning/colm"
+# Pair each selector_matrix_dir (relative) with its corresponding model
+selector_matrix_model_pairs = [
+    # ("openwebtext_Olmo-3-1025-7B_k255", "allenai/Olmo-3-1025-7B"),
+    ("openwebtext_SmolLM2-1.7B_k256", "HuggingFaceTB/SmolLM2-1.7B"),
+    # ("openwebtext_Qwen2.5-7B_k256", "Qwen/Qwen2.5-7B"),
+    # ("Dolci-Instruct-SFT_phi-4_k252", "microsoft/phi-4"),
+    # ("openwebtext_Mistral-7B-v0.3_k255", "mistralai/Mistral-7B-v0.3"),
+    # ("openwebtext_phi-4_k198", "microsoft/phi-4")
 ]
+
+selector_matrix_model_pairs = [
+    # ("openwebtext_Llama-2-7b-hf_k256", "meta-llama/Llama-2-7b-hf"),
+    ("openwebtext_Llama-2-7b-hf_k254_semalign_contrastive_Qwen3-Embedding-8B",
+     "meta-llama/Llama-2-7b-hf"),
+    # ("openwebtext_Llama-2-7b-hf_k256_semalign_ridge_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf")
+]
+
 
 # ==== Watermark-specific Params ====
 gamma = delta = distributions = gaussmark_configs = None
 
 if watermark_type == "mb" or watermark_type == "mb_binom" or watermark_type == "mb_discrete":
-    # checkpoint_dir = "./lora_targeted"
     gamma = [0.25]
-    delta = [1.0]
+    delta = [0.725]
 
 elif watermark_type == "noise":
     delta = [1.25]
     distributions = ["symmetric_beta", "gaussian", "uniform"]
 
-elif watermark_type in ["kgw", "kgw_llr"]:
+elif watermark_type in ["kgw", "kgw_llr", "unigram"]:
     gamma = [0.25]
-    delta = [1.2]
+    delta = [1.5, 1.6]
 
 elif watermark_type == "distilled":
     seeds = [15485863]
-    models = ["cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"]
+    selector_matrix_model_pairs = [
+        (None, "cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2")]
 
 elif watermark_type == "gaussmark":
+    selector_matrix_model_pairs = [
+        (None, "meta-llama/Llama-2-7b-hf")
+    ]
     gaussmark_configs = [
         ("lm_head.weight", sigma)
         for sigma in [0.004, 0.005, 0.006, 0.007]
-    ] + [
-        ("model.layers.27.mlp.up_proj.weight", sigma)
-        for sigma in [0.02, 0.025, 0.03, 0.035, 0.04]
     ]
 
     gaussmark_configs = [
@@ -68,6 +82,11 @@ elif watermark_type == "gaussmark":
 
     gaussmark_configs = [
         ("model.layers.27.mlp.up_proj.weight", 0.04)
+    ]
+
+    gaussmark_configs = [
+        ("model.layers.27.mlp.up_proj.weight", sigma)
+        for sigma in [0.02, 0.025, 0.03, 0.035, 0.045]
     ]
 
 elif watermark_type == "rl":
@@ -86,10 +105,11 @@ def build_jobs_mb():
         (gpu, {
             'gamma': g, 'delta': d,
             'dataset': dataset, 'model': model, 'seed': seed, 'step': step,
-            'selector_matrix_dir': selector_matrix_dir,
+            'selector_matrix_dir': os.path.join(SAVED_MODELS_BASE_DIR, selector_matrix_dir),
+            'checkpoint_dir': os.path.join(CHECKPOINT_BASE_DIR, selector_matrix_dir + CHECKPOINT_DIR_SUFFIX)
         })
-        for gpu, (g, d, dataset, model, seed, step, selector_matrix_dir) in enumerate(
-            itertools.product(gamma, delta, datasets, models, seeds, steps, selector_matrix_dirs))
+        for gpu, (g, d, dataset, (selector_matrix_dir, model), seed, step) in enumerate(
+            itertools.product(gamma, delta, datasets, selector_matrix_model_pairs, seeds, steps))
     ]
 
 
@@ -100,8 +120,8 @@ def build_jobs_noise():
             'distribution': dist,
             'dataset': dataset, 'model': model, 'seed': seed
         })
-        for gpu, (d, dist, dataset, model, seed) in enumerate(
-            itertools.product(delta, distributions, datasets, models, seeds))
+        for gpu, (d, dist, dataset, (_, model), seed) in enumerate(
+            itertools.product(delta, distributions, datasets, selector_matrix_model_pairs, seeds))
     ]
 
 
@@ -111,32 +131,69 @@ def build_jobs_kgw():
             'gamma': g, 'delta': d,
             'dataset': dataset, 'model': model, 'seed': seed
         })
-        for gpu, (g, d, dataset, model, seed) in enumerate(
-            itertools.product(gamma, delta, datasets, models, seeds))
+        for gpu, (g, d, dataset, (_, model), seed) in enumerate(
+            itertools.product(gamma, delta, datasets, selector_matrix_model_pairs, seeds))
+    ]
+
+
+def build_jobs_unigram():
+    return [
+        (gpu, {
+            'gamma': g, 'delta': d,
+            'dataset': dataset, 'model': model, 'seed': seed
+        })
+        for gpu, (g, d, dataset, (_, model), seed) in enumerate(
+            itertools.product(gamma, delta, datasets, selector_matrix_model_pairs, seeds))
     ]
 
 
 def build_jobs_distilled():
-    return [
-        (gpu, {
-            'gamma': 0.25, 'delta': 0,
-            'dataset': dataset, 'model': model, 'seed': seed, 'step': step
-        })
-        for gpu, (dataset, model, seed, step) in enumerate(
-            itertools.product(datasets, models, seeds, steps))
-    ]
+    jobs = []
+    product_iter = itertools.product(
+        datasets, selector_matrix_model_pairs, seeds, steps)
+    for gpu, (dataset, (_, model), seed, step) in enumerate(product_iter):
+        checkpoint_folder = f"kgw_distilled_Llama-2-7b-hf" + CHECKPOINT_DIR_SUFFIX
+        job = (
+            gpu,
+            {
+                'gamma': 0.25,
+                'delta': 0,
+                'dataset': dataset,
+                'model': model,
+                'seed': seed,
+                'step': step,
+                'checkpoint_dir': os.path.join(CHECKPOINT_BASE_DIR, checkpoint_folder)
+            }
+        )
+        jobs.append(job)
+    return jobs
 
 
 def build_jobs_gaussmark():
-    return [
-        (gpu, {
-            'gamma': 0, 'delta': 0,
-            'dataset': dataset, 'model': model, 'seed': seed,
-            'target_param_name': layer, 'sigma': sigma, 'step': step
-        })
-        for gpu, ((layer, sigma), dataset, model, seed, step) in enumerate(
-            itertools.product(gaussmark_configs, datasets, models, seeds, steps))
-    ]
+    jobs = []
+    product_iter = itertools.product(
+        gaussmark_configs, datasets, selector_matrix_model_pairs, seeds, steps
+    )
+    for gpu, (gaussmark_cfg, dataset, (_, model), seed, step) in enumerate(product_iter):
+        layer, sigma = gaussmark_cfg
+        model_suffix = model.split("/")[-1]
+        checkpoint_folder = f"gaussmark_{model_suffix}" + CHECKPOINT_DIR_SUFFIX
+        job = (
+            gpu,
+            {
+                'gamma': 0,
+                'delta': 0,
+                'dataset': dataset,
+                'model': model,
+                'seed': seed,
+                'target_param_name': layer,
+                'sigma': sigma,
+                'step': step,
+                'checkpoint_dir': os.path.join(CHECKPOINT_BASE_DIR, checkpoint_folder)
+            }
+        )
+        jobs.append(job)
+    return jobs
 
 
 def build_jobs_rl():
@@ -146,8 +203,8 @@ def build_jobs_rl():
             'dataset': dataset, 'model': model, 'seed': seed,
             'rl_model_path': rl_model_path
         })
-        for gpu, (dataset, model, seed) in enumerate(
-            itertools.product(datasets, models, seeds))
+        for gpu, (dataset, (_, model), seed) in enumerate(
+            itertools.product(datasets, selector_matrix_model_pairs, seeds))
     ]
 
 
@@ -159,8 +216,8 @@ def build_jobs_binoc():
             'performer_lora_path': binoc_performer_lora_path,
             'observer_lora_path': binoc_observer_lora_path
         })
-        for gpu, (dataset, model, seed) in enumerate(
-            itertools.product(datasets, models, seeds))
+        for gpu, (dataset, (_, model), seed) in enumerate(
+            itertools.product(datasets, selector_matrix_model_pairs, seeds))
     ]
 
 # ==== Shared Job Runner ====
@@ -174,7 +231,8 @@ def run_job_common(args_and_locks):
     output_dir = f"{base_output_dir}/{model_suffix}"
     lock = gpu_locks[gpu]
     num_samples = 1000 if param['dataset'] == "combined" else NUM_SAMPLES
-    selector_matrix_dir = param.get('selector_matrix_dir', '')
+    selector_matrix_dir = param.get('selector_matrix_dir', '.')
+    checkpoint_dir = param.get('checkpoint_dir', '.')
     cmd = [
         './scripts/test_watermarking.sh',
         '--gamma', str(param.get('gamma', 0)),
@@ -242,6 +300,8 @@ if __name__ == '__main__':
         jobs = build_jobs_noise()
     elif watermark_type in ["kgw", "kgw_llr"]:
         jobs = build_jobs_kgw()
+    elif watermark_type == "unigram":
+        jobs = build_jobs_unigram()
     elif watermark_type == "distilled":
         jobs = build_jobs_distilled()
     elif watermark_type == "gaussmark":

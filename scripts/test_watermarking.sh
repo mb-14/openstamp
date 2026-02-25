@@ -154,7 +154,7 @@ elif [ "$watermark" == "mb" ] || [ "$watermark" == "mb_binom" ] || [ "$watermark
 
   output_file="${output_dir}/output_delta=${DELTA}_gamma=${GAMMA}_k=${k}_seed=${SEED}_watermark=${watermark}_dataset=${dataset}${suffix}"
   K="$k"
-elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ]; then
+elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ] || [ "$watermark" == "unigram" ]; then
   output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "rl" ] || [ "$watermark" == "binoc" ] || [ "$watermark" == "distilled" ]; then
   output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}"
