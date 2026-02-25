@@ -58,7 +58,7 @@ if __name__ == "__main__":
     decoder_tokenizer = load_decoder_tokenizer(args.tokenizer)
 
     sent_model = SentenceTransformer(
-        args.model, device='cuda', trust_remote_code=True).bfloat16()
+        args.model, device='cuda', model_kwargs={'dtype': torch.bfloat16}, trust_remote_code=True)
     sent_model.eval()
 
     model_name = args.model.split("/")[-1]
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     pbar = tqdm(total=len(dataloader), desc="Processing batches")
     with torch.no_grad():
         for batch in dataloader:
-            batch = batch[0].to("cuda")
+            batch = batch[0].to(sent_model.device)
             # Decode the input ids to text
             decoded_batch = decoder_tokenizer.batch_decode(
                 batch, skip_special_tokens=True)
@@ -77,10 +77,6 @@ if __name__ == "__main__":
             embeddings = sent_model.encode(
                 decoded_batch, convert_to_tensor=True)
             all_embeddings.append(embeddings.detach().cpu())
-            del batch
-            del decoded_batch
-            del embeddings
-            torch.cuda.empty_cache()
             pbar.update(1)
 
     pbar.close()
