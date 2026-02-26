@@ -8,6 +8,7 @@ import os
 import json
 from pathlib import Path
 from datasets import Dataset
+import aiohttp
 import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm.notebook import tqdm
@@ -224,6 +225,7 @@ for key in selected_keys:
         split=spec["split"],
         streaming=spec["streaming"],
         trust_remote_code=True,
+        storage_options={'client_kwargs': {'timeout': aiohttp.ClientTimeout(total=3600)}}
     )
 
     # Reduce to necessary field (booksum special case)
