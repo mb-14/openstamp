@@ -1,11 +1,12 @@
 #!/bin/bash
 
 export CUDA_VISIBLE_DEVICES='0,1,5,6'
-base_selector_dir="/data/users/miroojin/saksham/watermark-adapters/saved_models_new"
+base_selector_dir="saved_models_new"
 
 # --- 1. Parse Arguments ---
 watermark="openstamp"
 target_config="0" # Default value
+seed=15485863
 # 0 - Lora on all internal linear layers
 # 1 - Lora on all internal linear layers + unembedding layer
 # 2 - Full fine-tuning (no LoRA) on unembedding layer only
@@ -14,6 +15,7 @@ while getopts "w:t:" opt; do
     case $opt in
         w) watermark="$OPTARG" ;;
         t) target_config="$OPTARG" ;;
+        seed) seed="$OPTARG" ;;
         *) exit 1 ;;
     esac
 done
@@ -54,7 +56,7 @@ run_train() {
         --target_param_config "$target_config" \
         --run_name "$final_run_name" \
         --output_dir "finetuning/colm/$final_run_name" \
-        --watermark_seed 15485863 \
+        --watermark_seed $seed \
         --max_steps 2500 \
         --num_train_epochs 1 \
         --dtype bfloat16 \
@@ -83,9 +85,9 @@ elif [ "$watermark" == "kgw_distilled" ]; then
 
 elif [ "$watermark" == "openstamp" ]; then
     selector_matrices=(
-        "openwebtext_Llama-2-7b-hf_k256"
+        # "openwebtext_Llama-2-7b-hf_k256"
         "openwebtext_Llama-2-7b-hf_k254_semalign_contrastive_Qwen3-Embedding-8B"
-        "openwebtext_Llama-2-7b-hf_k256_semalign_ridge_Qwen3-Embedding-8B"
+        # "openwebtext_Llama-2-7b-hf_k256_semalign_ridge_Qwen3-Embedding-8B"
     )
 
     for sm in "${selector_matrices[@]}"; do
