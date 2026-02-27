@@ -74,9 +74,10 @@ def train_contrastive_alignment(
     temperature=0.07,
     val_split=0.2,
     seed=42,
+    weight_decay=1e-2,
 ):
     model = LinearProjector(hidden_states.shape[1], hidden_states.shape[1]).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     dataset = TensorDataset(hidden_states, embeddings)
     train_size = int((1 - val_split) * len(dataset))
@@ -230,6 +231,12 @@ def parse_args():
         help="Validation split ratio for contrastive training",
     )
     parser.add_argument(
+        "--contrastive-weight-decay",
+        type=float,
+        default=1e-2,
+        help="Weight decay for contrastive training",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -305,6 +312,7 @@ def main():
             batch_size=args.contrastive_batch_size,
             temperature=args.contrastive_temperature,
             val_split=args.contrastive_val_split,
+            weight_decay=args.contrastive_weight_decay,
             seed=args.seed,
         )
 
