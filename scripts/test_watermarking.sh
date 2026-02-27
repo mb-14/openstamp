@@ -195,13 +195,13 @@ fi
 # Generate paraphrases if PARAPHRASE is set to 1
 if [ "$PARAPHRASE" -eq 1 ]; then
 
-  python scripts/paraphrase.py \
-    --output_file $output_file \
-    --lex 60 --order 0 &>"$log_dir/paraphrase_l60_${timestamp}.log"
+  # python scripts/paraphrase.py \
+  #   --output_file $output_file \
+  #   --lex 60 --order 0 &>"$log_dir/paraphrase_l60_${timestamp}.log"
 
-  python scripts/paraphrase.py \
-    --output_file $output_file \
-    --lex 20 --order 0 &>"$log_dir/paraphrase_l20_${timestamp}.log"
+  # python scripts/paraphrase.py \
+  #   --output_file $output_file \
+  #   --lex 20 --order 0 &>"$log_dir/paraphrase_l20_${timestamp}.log"
 
   python scripts/paraphrase_llm.py \
     --output_file $output_file --num_beams 3 &>"$log_dir/paraphrase_llm_${timestamp}.log"
