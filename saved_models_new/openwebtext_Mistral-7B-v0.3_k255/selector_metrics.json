@@ -1,0 +1,18 @@
+{
+  "k": 255,
+  "train_accuracy": 0.7004450559616089,
+  "val_accuracy": 0.6906906962394714,
+  "norm_mean": 366.0,
+  "norm_std": 30.25,
+  "one_hotness": {
+    "l1_error": 0.05224609375,
+    "top1_accuracy": 0.6906906962394714,
+    "mean_gap": 0.357421875,
+    "sharpness": 15360.0
+  },
+  "projection_extreme_fraction": 0.0052648124694824215,
+  "projection_threshold": 3.0,
+  "sem_align": false,
+  "embedding_model": null,
+  "align_method": null
+}
