@@ -13,9 +13,10 @@ distilled_model_path="cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-d
 # 2 - Full fine-tuning (no LoRA) on unembedding layer only
 
 base_checkpoint_dir="finetuning/colm"
+output_dir=""
 
 usage() {
-    echo "Usage: $0 [--watermark value] [--model value] [--seed value] [--distilled_model_path value]"
+    echo "Usage: $0 [--watermark value] [--model value] [--seed value] [--distilled_model_path value] [--output_dir value]"
 }
 
 set_option() {
@@ -27,6 +28,7 @@ set_option() {
         --model) model="$value" ;;
         --seed) seed="$value" ;;
         --distilled_model_path) distilled_model_path="$value" ;;
+        --output_dir) output_dir="$value" ;;
         *)
             echo "Error: Unknown option '$option'"
             usage
@@ -45,7 +47,7 @@ require_value() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --watermark|--model|--seed|--distilled_model_path)
+        --watermark|--model|--seed|--distilled_model_path|--output_dir)
             require_value "$1" "$2"
             set_option "$1" "$2"
             shift 2
@@ -86,6 +88,11 @@ run_train() {
 
     # Accessing the global $target_config to create suffixes
     local final_run_name="${base_name}_config${target_config}_seed${seed}"
+    local final_output_dir="${base_checkpoint_dir}/${final_run_name}"
+
+    if [[ -n "$output_dir" ]]; then
+        final_output_dir="$output_dir"
+    fi
 
     unset WANDB_RUN_NAME WANDB_RUN_ID
     export WANDB_RUN_NAME="$final_run_name"
@@ -101,7 +108,7 @@ run_train() {
         --watermark_type "$w_type" \
         --target_param_config "$target_config" \
         --run_name "$final_run_name" \
-        --output_dir "$base_checkpoint_dir/$final_run_name" \
+        --output_dir "$final_output_dir" \
         --watermark_seed $seed \
         --max_steps 2500 \
         --num_train_epochs 1 \
@@ -121,7 +128,7 @@ run_train() {
         --optim adafactor \
         --gpu_ids all
     
-    echo "Checkpoint saved to: $base_checkpoint_dir/${final_run_name}"
+    echo "Checkpoint saved to: $final_output_dir"
 }
 
 # --- 4. Execution Logic ---
