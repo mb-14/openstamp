@@ -68,7 +68,7 @@ def main():
     }
 
     model = AutoModelForCausalLM.from_pretrained(models_args.model_name_or_path, **model_kwargs)
-    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+    tokenizer = AutoTokenizer.from_pretrained(models_args.model_name_or_path)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -91,8 +91,12 @@ def main():
 
         model = mb_mark.model
     if watermark_type == "gaussmark":
-        target_param_name = "model.layers.27.mlp.up_proj.weight"
-        sigma = 0.04
+        if models_args.model_name_or_path == "meta-llama/Llama-2-7b-hf":
+            target_param_name = "model.layers.27.mlp.up_proj.weight"
+            sigma = 0.04
+        elif models_args.model_name_or_path =="mistralai/Mistral-7B-v0.3":
+            target_param_name = "model.layers.20.mlp.up_proj.weight"
+            sigma = 0.005
         gaussmark = GaussMark(sigma=sigma, seed=custom_args.watermark_seed,
                           target_param_name=target_param_name, tokenizer=tokenizer, model=model)
         model = gaussmark.model

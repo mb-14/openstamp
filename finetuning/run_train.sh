@@ -1,29 +1,37 @@
 #!/bin/bash
 
-export CUDA_VISIBLE_DEVICES='0,1,5,6'
+export CUDA_VISIBLE_DEVICES='1,2,5,6'
 base_selector_dir="saved_models_new"
 
 # --- 1. Parse Arguments ---
 watermark="openstamp"
+model="llama"
 target_config="0" # Default value
 seed=15485863
 # 0 - Lora on all internal linear layers
 # 1 - Lora on all internal linear layers + unembedding layer
 # 2 - Full fine-tuning (no LoRA) on unembedding layer only
 
-while getopts "w:t:" opt; do
+while getopts "w:m:t:s:" opt; do
     case $opt in
         w) watermark="$OPTARG" ;;
+        m) model="$OPTARG" ;;
         t) target_config="$OPTARG" ;;
-        seed) seed="$OPTARG" ;;
+        s) seed="$OPTARG" ;;
         *) exit 1 ;;
     esac
 done
 
 # --- 2. Validation ---
 case "$watermark" in
-    "openstamp"|"gaussmark"|"kgw_distilled") echo "Watermark: $watermark" ;;
+    "openstamp"|"gaussmark") echo "Watermark: $watermark" ;;
+    "kgw_distilled") echo "Error: kgw_distilled is not supported. Use openstamp or gaussmark."; exit 1 ;;
     *) echo "Error: Invalid watermark type."; exit 1 ;;
+esac
+
+case "$model" in
+    "llama"|"mistral") echo "Model: $model" ;;
+    *) echo "Error: model must be 'llama' or 'mistral'"; exit 1 ;;
 esac
 
 case "$target_config" in
@@ -39,7 +47,7 @@ run_train() {
     local w_type=$4
 
     # Accessing the global $target_config to create suffixes
-    local final_run_name="${base_name}_config${target_config}"
+    local final_run_name="${base_name}_config${target_config}_seed${seed}"
 
     unset WANDB_RUN_NAME WANDB_RUN_ID
     export WANDB_RUN_NAME="$final_run_name"
@@ -77,24 +85,33 @@ run_train() {
 }
 
 # --- 4. Execution Logic ---
-if [ "$watermark" == "gaussmark" ]; then
-    run_train "gaussmark_Llama-2-7b-hf" "meta-llama/Llama-2-7b-hf" "" "gaussmark"
+# Set model path based on model choice
+if [ "$model" == "llama" ]; then
+    model_path="meta-llama/Llama-2-7b-hf"
+    model_suffix="Llama-2-7b-hf"
+elif [ "$model" == "mistral" ]; then
+    model_path="mistralai/Mistral-7B-v0.3"
+    model_suffix="Mistral-7B-v0.3"
+fi
 
-elif [ "$watermark" == "kgw_distilled" ]; then
-    run_train "kgw_distilled_Llama-2-7b-hf" "cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2" "" "kgw_distilled"
+if [ "$watermark" == "gaussmark" ]; then
+    run_train "gaussmark_${model_suffix}" "$model_path" "" "gaussmark"
 
 elif [ "$watermark" == "openstamp" ]; then
-    selector_matrices=(
-        # "openwebtext_Llama-2-7b-hf_k256"
-        "openwebtext_Llama-2-7b-hf_k254_semalign_contrastive_Qwen3-Embedding-8B"
-        # "openwebtext_Llama-2-7b-hf_k256_semalign_ridge_Qwen3-Embedding-8B"
-    )
+    if [ "$model" == "llama" ]; then
+        selector_matrices=(
+            "openwebtext_Llama-2-7b-hf_k254_semalign_contrastive_Qwen3-Embedding-8B"
+        )
+    elif [ "$model" == "mistral" ]; then
+        selector_matrices=(
+            "openwebtext_Mistral-7B-v0.3_k254_semalign_contrastive_Qwen3-Embedding-8B"
+        )
+    fi
 
     for sm in "${selector_matrices[@]}"; do
-        # Extract name and full path
         r_name=$(basename "$sm")
         s_path="$base_selector_dir/$sm"
-        
-        run_train "$r_name" "meta-llama/Llama-2-7b-hf" "$s_path" "openstamp"
+
+        run_train "$r_name" "$model_path" "$s_path" "openstamp"
     done
 fi
