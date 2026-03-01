@@ -1,6 +1,5 @@
 #!/bin/bash
 
-export CUDA_VISIBLE_DEVICES='1,2,5,6'
 base_selector_dir="saved_models_new"
 
 # --- 1. Parse Arguments ---
