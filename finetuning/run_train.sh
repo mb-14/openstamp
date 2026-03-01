@@ -23,8 +23,7 @@ done
 
 # --- 2. Validation ---
 case "$watermark" in
-    "openstamp"|"gaussmark") echo "Watermark: $watermark" ;;
-    "kgw_distilled") echo "Error: kgw_distilled is not supported. Use openstamp or gaussmark."; exit 1 ;;
+    "openstamp"|"gaussmark"|"kgw_distilled") echo "Watermark: $watermark" ;;
     *) echo "Error: Invalid watermark type."; exit 1 ;;
 esac
 
@@ -95,6 +94,14 @@ fi
 
 if [ "$watermark" == "gaussmark" ]; then
     run_train "gaussmark_${model_suffix}" "$model_path" "" "gaussmark"
+
+elif [ "$watermark" == "kgw_distilled" ]; then
+    if [ "$model" != "llama" ]; then
+        echo "Error: kgw_distilled is only supported for model=llama"
+        exit 1
+    fi
+
+    run_train "kgw_distilled_Llama-2-7b-hf" "cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2" "" "kgw_distilled"
 
 elif [ "$watermark" == "openstamp" ]; then
     if [ "$model" == "llama" ]; then
