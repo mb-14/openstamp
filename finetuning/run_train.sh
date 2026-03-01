@@ -5,19 +5,64 @@ base_selector_dir="saved_models_new"
 # --- 1. Parse Arguments ---
 watermark="openstamp"
 model="llama"
-target_config="0" # Default value
+target_config="1" # Default value (config 1: Lora on all internal linear layers + unembedding layer)
 seed=15485863
+distilled_model_path="cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"
 # 0 - Lora on all internal linear layers
 # 1 - Lora on all internal linear layers + unembedding layer
 # 2 - Full fine-tuning (no LoRA) on unembedding layer only
 
-while getopts "w:m:t:s:" opt; do
-    case $opt in
-        w) watermark="$OPTARG" ;;
-        m) model="$OPTARG" ;;
-        t) target_config="$OPTARG" ;;
-        s) seed="$OPTARG" ;;
-        *) exit 1 ;;
+base_checkpoint_dir="finetuning/colm"
+
+usage() {
+    echo "Usage: $0 [--watermark value] [--model value] [--seed value] [--distilled_model_path value]"
+}
+
+set_option() {
+    local option="$1"
+    local value="$2"
+
+    case "$option" in
+        --watermark) watermark="$value" ;;
+        --model) model="$value" ;;
+        --seed) seed="$value" ;;
+        --distilled_model_path) distilled_model_path="$value" ;;
+        *)
+            echo "Error: Unknown option '$option'"
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+require_value() {
+    if [[ -z "$2" || "$2" == --* ]]; then
+        echo "Error: Missing value for $1"
+        usage
+        exit 1
+    fi
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --watermark|--model|--seed|--distilled_model_path)
+            require_value "$1" "$2"
+            set_option "$1" "$2"
+            shift 2
+            ;;
+        --help)
+            usage
+            exit 0
+            ;;
+        -*)
+            usage
+            exit 1
+            ;;
+        *)
+            echo "Error: Unknown argument '$1'"
+            usage
+            exit 1
+            ;;
     esac
 done
 
@@ -30,11 +75,6 @@ esac
 case "$model" in
     "llama"|"mistral") echo "Model: $model" ;;
     *) echo "Error: model must be 'llama' or 'mistral'"; exit 1 ;;
-esac
-
-case "$target_config" in
-    0|1|2) echo "Target Param Config: $target_config" ;;
-    *) echo "Error: target_param_config must be 0, 1, or 2"; exit 1 ;;
 esac
 
 # --- 3. Define the Training Function ---
@@ -61,7 +101,7 @@ run_train() {
         --watermark_type "$w_type" \
         --target_param_config "$target_config" \
         --run_name "$final_run_name" \
-        --output_dir "finetuning/colm/$final_run_name" \
+        --output_dir "$base_checkpoint_dir/$final_run_name" \
         --watermark_seed $seed \
         --max_steps 2500 \
         --num_train_epochs 1 \
@@ -80,6 +120,8 @@ run_train() {
         --lr_scheduler_type cosine \
         --optim adafactor \
         --gpu_ids all
+    
+    echo "Checkpoint saved to: $base_checkpoint_dir/${final_run_name}"
 }
 
 # --- 4. Execution Logic ---
@@ -101,7 +143,12 @@ elif [ "$watermark" == "kgw_distilled" ]; then
         exit 1
     fi
 
-    run_train "kgw_distilled_Llama-2-7b-hf" "cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2" "" "kgw_distilled"
+    # Change this path with --distilled_model_path if needed
+    model_name_or_path="$distilled_model_path"
+    # Run name is a label for wandb and output directory
+    run_name="kgw_distilled_Llama-2-7b-hf"
+
+    run_train "$run_name" "$model_name_or_path" "" "kgw_distilled"
 
 elif [ "$watermark" == "openstamp" ]; then
     if [ "$model" == "llama" ]; then
