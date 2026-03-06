@@ -356,7 +356,7 @@ elif args.watermark == "binoc":
 if args.step > 0:
     lora_ckpt_path = os.path.join(
         args.checkpoint_dir, f"checkpoint-{args.step}")
-    if args.checkpoint_dir.endswith("config2"):
+    if "_config2" in args.checkpoint_dir:
         # Config 2 is full-finetuning, so we load the entire model
         watermarked_model = AutoModelForCausalLM.from_pretrained(lora_ckpt_path, device_map="auto", torch_dtype=torch.bfloat16).eval()
     else:

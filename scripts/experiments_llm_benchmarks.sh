@@ -2,30 +2,13 @@
 
 set -e  # Optional: exit immediately if a command fails
 
-# models=(
-# "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-greenlist-bias-k128-seed15485863" 
-# "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-arcsine-noise-seed12997009" \
-# "/pool.ssd/assets/models/mistralai/Mistral-7B-v0.3-watermarked-greenlist-bias-k128-seed12997009" 
-# "/pool.ssd/assets/models/mistralai/Mistral-7B-v0.3-watermarked-arcsine-noise-seed22983996" \
-# "meta-llama/Llama-2-7b-hf")
-# "mistralai/Mistral-7B-v0.3") 
-
-models=("meta-llama/Llama-2-7b-hf")
 models=(
-    "meta-llama/Llama-2-7b-hf" \
-    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-gaussmark-sigma0.04-seed15485863" \
-    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-gaussmark-sigma0.04-seed12997009" \
-    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-gaussmark-sigma0.04-seed22983996" \
-    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-greenlist-bias-k235-seed15485863" \
-    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-greenlist-bias-k235-seed12997009" \
-    "/pool.ssd/assets/models/meta-llama/Llama-2-7b-hf-watermarked-greenlist-bias-k235-seed22983996" \
-    "cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"
+    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/meta-llama/Llama-2-7b-hf-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed22983996" \
+    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/meta-llama/Llama-2-7b-hf-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed15485863" \
+    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/meta-llama/Llama-2-7b-hf-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed12997009" \
 )
 
-# models = ["mbakshi1094/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta1.25"]
-# models=("cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2")
-
-datasets=(mmlu)
+datasets=(boolq arc_challenge hellaswag)
 # datasets=(arc_challenge hellaswag)
 
 #* Test the performance of models on different benchmarks

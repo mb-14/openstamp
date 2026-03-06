@@ -5,7 +5,7 @@ base_selector_dir="saved_models_new"
 # --- 1. Parse Arguments ---
 watermark="openstamp"
 model="llama"
-target_config="1" # Default value (config 1: Lora on all internal linear layers + unembedding layer)
+target_config="2" # Default value (config 1: Lora on all internal linear layers + unembedding layer)
 seed=15485863
 distilled_model_path="cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"
 # 0 - Lora on all internal linear layers
@@ -75,8 +75,8 @@ case "$watermark" in
 esac
 
 case "$model" in
-    "llama"|"mistral") echo "Model: $model" ;;
-    *) echo "Error: model must be 'llama' or 'mistral'"; exit 1 ;;
+    "llama"|"mistral"|"qwen") echo "Model: $model" ;;
+    *) echo "Error: model must be 'llama', 'mistral', or 'qwen'"; exit 1 ;;
 esac
 
 # --- 3. Define the Training Function ---
@@ -139,6 +139,9 @@ if [ "$model" == "llama" ]; then
 elif [ "$model" == "mistral" ]; then
     model_path="mistralai/Mistral-7B-v0.3"
     model_suffix="Mistral-7B-v0.3"
+elif [ "$model" == "qwen" ]; then
+    model_path="Qwen/Qwen2.5-7B"
+    model_suffix="Qwen2.5-7B"
 fi
 
 if [ "$watermark" == "gaussmark" ]; then
@@ -164,7 +167,12 @@ elif [ "$watermark" == "openstamp" ]; then
         )
     elif [ "$model" == "mistral" ]; then
         selector_matrices=(
-            "openwebtext_Mistral-7B-v0.3_k254_semalign_contrastive_Qwen3-Embedding-8B"
+            "openwebtext_Mistral-7B-v0.3_k255"
+        )
+    elif [ "$model" == "qwen" ]; then
+        selector_matrices=(
+            "openwebtext_Qwen2.5-7B_k251_semalign_contrastive_Qwen3-Embedding-8B"
+            "openwebtext_Qwen2.5-7B_k256"
         )
     fi
 
