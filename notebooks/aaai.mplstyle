@@ -9,8 +9,6 @@
 
 # --- Font Settings ---
 # Use a serif font like Times New Roman for a classic academic look.
-font.family         : serif
-font.serif          : Times New Roman, Computer Modern Roman
 font.size           : 10
 
 # --- Axes Settings ---
@@ -41,7 +39,7 @@ legend.columnspacing  : 1.2
 
 # --- Figure Settings ---
 # These settings are optimized for a two-column paper format.
-figure.figsize      : 3.4, 2.8  # Width, Height in inches
+figure.figsize      : 3.4, 2.5  # Width, Height in inches
 figure.dpi          : 300       # Resolution for display
 savefig.dpi         : 300       # Resolution for saved files
 savefig.format      : pdf       # Use vector format for papers
