@@ -221,7 +221,7 @@ def parse_args():
     parser.add_argument(
         "--contrastive-temperature",
         type=float,
-        default=0.07,
+        default=0.1,
         help="Temperature for contrastive distillation loss",
     )
     parser.add_argument(
@@ -276,10 +276,6 @@ def main():
     
     # Move to device if specified
     device = torch.device(args.device)
-    if args.device != "cpu":
-        rprint(f"[bold yellow]Moving data to {args.device}...[/bold yellow]")
-        hidden_states = hidden_states.to(device)
-        embeddings = embeddings.to(device)
     
     output_dir = args.output_dir if args.output_dir else args.dataset_path
 

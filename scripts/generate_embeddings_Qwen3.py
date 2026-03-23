@@ -11,6 +11,7 @@ from collections import defaultdict
 
 import torch
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 from rich import print as rprint
 from transformers import AutoTokenizer, AutoModel
@@ -82,6 +83,30 @@ def map_subprefixes_to_longest(prefix_to_indices, longest_prefixes):
                     prefix_to_source[sub] = long_prefix
                     pbar.update(1)
     return prefix_to_source
+
+
+def tokenize_in_batches(tokenizer, texts, max_length, batch_size):
+    all_token_ids = []
+    for i in tqdm(range(0, len(texts), batch_size), desc="Tokenizing batches"):
+        batch_texts = texts[i : i + batch_size]
+        encoded = tokenizer(
+            batch_texts,
+            padding=False,
+            truncation=True,
+            max_length=max_length,
+            return_attention_mask=False,
+        )
+        all_token_ids.extend(encoded["input_ids"])
+
+    if not all_token_ids:
+        return torch.empty((0, 0), dtype=torch.long)
+
+    all_input_ids = pad_sequence(
+        [torch.tensor(ids, dtype=torch.long) for ids in all_token_ids],
+        batch_first=True,
+        padding_value=tokenizer.pad_token_id,
+    )
+    return all_input_ids
 
 
 @torch.no_grad()
@@ -267,15 +292,13 @@ def main():
 
     embed_dim = model.config.hidden_size
 
-    rprint("[bold cyan]Tokenizing with Qwen3...[/bold cyan]")
-    encoded = qwen_tokenizer(
-        decoded_texts,
-        padding=True,
-        truncation=True,
+    rprint("[bold cyan]Tokenizing with Qwen3 in batches...[/bold cyan]")
+    all_input_ids = tokenize_in_batches(
+        tokenizer=qwen_tokenizer,
+        texts=decoded_texts,
         max_length=args.max_length,
-        return_tensors="pt",
+        batch_size=args.batch_size,
     )
-    all_input_ids = encoded["input_ids"]
     pad_token_id = qwen_tokenizer.pad_token_id
 
     pad_mask = (all_input_ids != pad_token_id)
