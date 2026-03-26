@@ -2,19 +2,10 @@
 
 set -e  # Optional: exit immediately if a command fails
 
-# models=(
-#     "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/meta-llama/Llama-2-7b-hf-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed22983996" \
-#     "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/meta-llama/Llama-2-7b-hf-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed15485863" \
-#     "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/meta-llama/Llama-2-7b-hf-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed12997009" \
-# )
 
+# Change this to your local directory containing the watermaked model
 models=(
-    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/mistralai/Mistral-7B-v0.3-watermarked-gaussmark-sigma0.005-seed12997009" \
-    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/mistralai/Mistral-7B-v0.3-watermarked-gaussmark-sigma0.005-seed22983996" \
-    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/mistralai/Mistral-7B-v0.3-watermarked-gaussmark-sigma0.005-seed15485863" \
-    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/mistralai/Mistral-7B-v0.3-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed22983996" \
-    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/mistralai/Mistral-7B-v0.3-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed15485863" \
-    "/data/users/miroojin/saksham/watermark-adapters/output/watermarked_models/mistralai/Mistral-7B-v0.3-watermarked-openstamp-semalign-contrastive-Qwen3-Embedding-8B-k254-delta1.0-gamma-0.25-seed12997009" \
+    "meta-llama/Llama-2-7b-hf",
     "mistralai/Mistral-7B-v0.3"
 )
 
