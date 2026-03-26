@@ -8,6 +8,8 @@ saved_models/
 wandb/
 finetuning/colm/
 finetuning/openstamp_iclr_rebuttal/
+.rsyncignore
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
