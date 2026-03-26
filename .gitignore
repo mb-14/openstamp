@@ -6,6 +6,8 @@ config/
 results/
 saved_models/
 wandb/
+finetuning/colm/
+finetuning/openstamp_iclr_rebuttal/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
