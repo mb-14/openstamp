@@ -6,9 +6,12 @@ A watermarking method for open-source Large Language Models.
 
 
 ```bash
-conda create -n openstamp python=3.10 -y
+conda create -n openstamp python=3.12 -y
 conda activate openstamp
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pip install flash-attn --no-build-isolation
 pip install -r requirements.txt
+
 ```
 
 ## Download models
@@ -28,6 +31,8 @@ hf download mistralai/Mistral-7B-v0.3
 ```
 
 ## Run experiments
+
+Run the following command to generate watermarked samples and evaluate detection performance on the samples:
 
 ```bash
 python scripts/run_config.py \
