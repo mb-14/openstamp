@@ -35,20 +35,20 @@ def parse_args():
     parser.add_argument('--num_samples', type=int, default=5000)
     parser.add_argument('--gamma', type=float, default=0.25)
     parser.add_argument('--delta', type=float, default=1.0)
-    parser.add_argument('--hash_key', type=int, default=15485863,
+    parser.add_argument('--watermark_seed', type=int, default=15485863,
                         help="PRF for the watermarking matrix")
     parser.add_argument('--output_file', type=str, required=True)
     parser.add_argument('--model_name', type=str,
                         default="meta-llama/Llama-2-7b-hf")
-    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--generation_seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "mb_binom", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl", "binoc", "mb_discrete", "unigram"],)
+                        default="mb", choices=["mb", "mb_binom", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl", "mb_discrete", "unigram"],)
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
                         help="Distribution to sample the offset matrix from")
     parser.add_argument('--dataset', type=str,
-                        default="realnewslike", choices=["realnewslike", "wikipedia", "arxiv", "booksum", "combined"])
+                        default="realnewslike", choices=["realnewslike", "wikipedia", "arxiv", "booksum"])
 
     parser.add_argument("--sigma", type=float, default=0.008,
                         help="Standard deviation for GaussMark")
@@ -62,11 +62,7 @@ def parse_args():
     )
     parser.add_argument("--rl_model_path", type=str,
                         help="Local path to the RL model", default=None)
-    parser.add_argument('--binoc_performer_lora_path', type=str,
-                        help="Local path to the Binocular performer LoRA weights", default=None)
-    parser.add_argument('--binoc_observer_lora_path', type=str,
-                        help="Local path to the Binocular observer LoRA weights", default=None)
-    parser.add_argument('--checkpoint_dir', type=str, required=True,
+    parser.add_argument('--checkpoint_dir', type=str, required=False,
                         help="Directory containing the LoRA checkpoints")
     parser.add_argument('--step', type=int, default=0,
                         help="Step of the LoRA checkpoint to load. If 0, no LoRA is applied.")
@@ -117,7 +113,7 @@ if os.path.exists(args.output_file):
 else:
     output_data = {}
 
-set_seed(args.seed)
+set_seed(args.generation_seed)
 
 
 if args.watermark == "rl":
@@ -136,10 +132,7 @@ else:
 
 
 device = model.device
-if args.dataset == "combined":
-    selected_keys = ["realnewslike", "wikipedia", "arxiv", "booksum"]
-else:
-    selected_keys = [args.dataset]
+selected_keys = [args.dataset]
 
 samples_per_dataset = args.num_samples // len(selected_keys)
 min_length = args.prompt_length + args.max_tokens
@@ -234,7 +227,7 @@ for key in selected_keys:
             [col for col in dataset.column_names if col != spec["data_field"]])
 
     # Shuffle with buffer
-    dataset = dataset.shuffle(seed=args.seed)
+    dataset = dataset.shuffle(seed=args.generation_seed)
 
     dataset = dataset.filter(lambda x: filter_length(x, spec["data_field"]))
 
@@ -300,7 +293,7 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
     mb_mark = MbMark.mb(
         delta=args.delta,
         gamma=args.gamma,
-        seed=args.hash_key,
+        seed=args.watermark_seed,
         final_weight=final_weight,
         model=model,
         unembedding_param_name="lm_head",
@@ -311,7 +304,7 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
 elif args.watermark == "noise":
     mb_mark = MbMark.noise_injection(
         delta=args.delta,
-        seed=args.hash_key,
+        seed=args.watermark_seed,
         model=model,
         unembedding_param_name="lm_head",
         tokenizer=tokenizer,
@@ -323,20 +316,20 @@ elif args.watermark == "noise":
 elif args.watermark == "gaussmark":
     target_param_name = args.target_param_name
     sigma = args.sigma
-    gaussmark = GaussMark(sigma=sigma, seed=args.hash_key,
+    gaussmark = GaussMark(sigma=sigma, seed=args.watermark_seed,
                           target_param_name=target_param_name, tokenizer=tokenizer, model=model)
     watermarked_model = gaussmark.model
 elif args.watermark == "distilled":
-    watermark = KGWDistilled(model=model, tokenizer=tokenizer, gamma=0.25,
-                             seeding_scheme="simple_1", kgw_device="cpu")
+    watermark = KGWDistilled(model=model, tokenizer=tokenizer, gamma=args.gamma,
+                             delta=args.delta, seeding_scheme="simple_1", hash_key=args.watermark_seed, kgw_device="cpu")
     watermarked_model = watermark.model
 elif args.watermark == "kgw" or args.watermark == "kgw_llr":
     kgw_device = device
     watermark = KGWMark(model=model, tokenizer=tokenizer, gamma=args.gamma,
-                        delta=args.delta, hash_key=args.hash_key, kgw_device=kgw_device)
+                        delta=args.delta, hash_key=args.watermark_seed, kgw_device=kgw_device)
     watermarked_processor = watermark.watermark
 elif args.watermark == "unigram":
-    watermark = Unigram(gamma=args.gamma, delta=args.delta, hash_key=args.hash_key, tokenizer=tokenizer)
+    watermark = Unigram(gamma=args.gamma, delta=args.delta, hash_key=args.watermark_seed, tokenizer=tokenizer)
     watermarked_processor = watermark.watermark
 elif args.watermark == "rl":
     watermarked_model = convert_linear_layer_to_lora(
@@ -345,15 +338,10 @@ elif args.watermark == "rl":
         args.rl_model_path+"/pytorch_model.bin", map_location='cpu'))
     watermarked_model = watermarked_model.cuda()
     watermarked_model.eval()
-elif args.watermark == "binoc":
-    if args.binoc_performer_lora_path is None:
-        raise ValueError(
-            "Please provide the path to the Binocular performer LoRA weights using --binoc_lora_path")
-    watermarked_model = PeftModel.from_pretrained(
-        model, args.binoc_performer_lora_path)
-    watermarked_model.eval()
 
 if args.step > 0:
+    if not args.checkpoint_dir:
+        raise ValueError("--checkpoint_dir is required when --step > 0")
     lora_ckpt_path = os.path.join(
         args.checkpoint_dir, f"checkpoint-{args.step}")
     if "_config2" in args.checkpoint_dir:
@@ -453,7 +441,7 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
     config = {
         "gamma": args.gamma,
         "delta": args.delta,
-        "hash_key": args.hash_key,
+        "watermark_seed": args.watermark_seed,
         "n_clusters": final_weight.size(0),
         "unembedding_param_name": "lm_head",
         "semalign": semalign,
@@ -465,25 +453,27 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
 elif args.watermark == "gaussmark":
     config = {
         "sigma": sigma,
-        "hash_key": args.hash_key,
+        "watermark_seed": args.watermark_seed,
         "target_param_name": target_param_name
     }
 elif args.watermark == "noise":
     config = {
-        "hash_key": args.hash_key,
+        "watermark_seed": args.watermark_seed,
         "distribution": args.distribution,
         "delta": args.delta,
         "unembedding_param_name": "lm_head",
     }
 elif args.watermark == "distilled":
     config = {
-        "gamma": 0.25,
+        "gamma": args.gamma,
+        "delta": args.delta,
         "seeding_scheme": "simple_1",
         "kgw_device": "cpu",
+        "watermark_seed": args.watermark_seed,
     }
 elif args.watermark == "kgw" or args.watermark == "kgw_llr":
     config = {
-        "hash_key": args.hash_key,
+        "watermark_seed": args.watermark_seed,
         "kgw_device": str(kgw_device),
         "gamma": args.gamma,
         "delta": args.delta,
@@ -492,16 +482,11 @@ elif args.watermark == "unigram":
     config = {
         "gamma": args.gamma,
         "delta": args.delta,
-        "hash_key": args.hash_key,
+        "watermark_seed": args.watermark_seed,
     }
 elif args.watermark == "rl":
     config = {
         "rl_model_path": args.rl_model_path,
-    }
-elif args.watermark == "binoc":
-    config = {
-        "observer_lora_path": args.binoc_observer_lora_path,
-        "performer_lora_path": args.binoc_performer_lora_path,
     }
 sample_data = {
     "samples": data,

@@ -1,0 +1,14 @@
+method: kgw_llr
+
+common:
+  gpus: [0]
+  datasets: [realnewslike]
+  watermark_seeds: [12997009, 22983996, 15485863]
+
+configs:
+  - model_name: meta-llama/Llama-2-7b-hf
+    gamma: 0.25
+    delta: 1.4
+  - model_name: mistralai/Mistral-7B-v0.3
+    gamma: 0.25
+    delta: 1.4

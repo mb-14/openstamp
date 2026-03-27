@@ -3,7 +3,7 @@ import torch
 
 
 class KGWDistilled:
-    def __init__(self, gamma, seeding_scheme, kgw_device, tokenizer, model=None):
+    def __init__(self, delta, gamma, seeding_scheme, hash_key, kgw_device, tokenizer, model=None):
         self.tokenizer = tokenizer
         if model is not None:
             self.model = model
@@ -13,7 +13,9 @@ class KGWDistilled:
             tokenizer=tokenizer,
             vocab=tokenizer.get_vocab().values(),
             gamma=gamma,
+            delta=delta,
             seeding_scheme=seeding_scheme,
+            hash_key=hash_key,
             normalizers=[],
         )
 

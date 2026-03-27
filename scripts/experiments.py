@@ -8,22 +8,21 @@ import multiprocessing
 
 NUM_SAMPLES = 500
 # ==== Common Config ====
-seeds = [15485863, 12997009, 22983996]
-# seeds = [15485863]
+seeds = [12997009, 22983996, 15485863]
 # models = ["allenai/Olmo-3-1025-7B", "HuggingFaceTB/SmolLM2-1.7B", "Qwen/Qwen2.5-7B", "microsoft/phi-4", "mistralai/Mistral-7B-v0.3"]
-# datasets = ["arxiv", "wikipedia", "booksum"]
+datasets = ["arxiv", "wikipedia", "booksum", "realnewslike"]
 datasets = ["realnewslike"]
-# Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, binoc, unigram
-watermark_type = "unigram"
-paraphrase = 1
+# Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, unigram
+watermark_type = "mb"
+paraphrase = 0
 generate = 1
 eval_ppl = 1
-gpus = [4, 5]
+gpus = [0,1]
 max_workers = len(gpus)
-base_output_dir = "output/unigram"
-steps = [0, 500, 1000, 1500, 2000, 2500]
-CHECKPOINT_DIR_SUFFIX = "_config2"
+base_output_dir = "output/colm_other_models"
+# steps = [0, 500, 1000, 1500, 2000, 2500]
 steps = [0]
+CHECKPOINT_DIR_SUFFIX = "_config2"
 
 # Base directory for saved models
 SAVED_MODELS_BASE_DIR = "saved_models_new"
@@ -42,25 +41,67 @@ selector_matrix_model_pairs = [
     # ("openwebtext_Llama-2-7b-hf_k256", "meta-llama/Llama-2-7b-hf"),
     ("openwebtext_Llama-2-7b-hf_k254_semalign_contrastive_Qwen3-Embedding-8B",
      "meta-llama/Llama-2-7b-hf"),
-    # ("openwebtext_Llama-2-7b-hf_k256_semalign_ridge_Qwen3-Embedding-8B",
-    #  "meta-llama/Llama-2-7b-hf")
+    # ("openwebtext_Llama-2-7b-hf_k8_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf"),
+    # ("openwebtext_Llama-2-7b-hf_k16_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf"),
+    # ("openwebtext_Llama-2-7b-hf_k32_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf"),
+    # ("openwebtext_Llama-2-7b-hf_k64_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf"),
+    # ("openwebtext_Llama-2-7b-hf_k96_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf"),
+    # ("openwebtext_Llama-2-7b-hf_k127_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf"),
+    # ("openwebtext_Llama-2-7b-hf_k192_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf"),
+    # ("openwebtext_Llama-2-7b-hf_k384_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "meta-llama/Llama-2-7b-hf"),
 ]
 
+selector_matrix_model_pairs = [
+    # ("openwebtext_Olmo-3-1025-7B_k253_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "allenai/Olmo-3-1025-7B"),
+    # ("openwebtext_Qwen2.5-7B_k251_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "Qwen/Qwen2.5-7B"),
+    ("openwebtext_SmolLM2-1.7B_k254_semalign_contrastive_Qwen3-Embedding-8B",
+     "HuggingFaceTB/SmolLM2-1.7B"),
+    # ("openwebtext_phi-4_k250_semalign_contrastive_Qwen3-Embedding-8B",
+    #  "microsoft/phi-4"),
+]
+
+# selector_matrix_model_pairs = [
+#     ("openwebtext_Mistral-7B-v0.3_k254_semalign_contrastive_Qwen3-Embedding-8B",
+#      "mistralai/Mistral-7B-v0.3"),
+#     ("openwebtext_Mistral-7B-v0.3_k255",
+#      "mistralai/Mistral-7B-v0.3"),
+# ]
+
+# selector_matrix_model_pairs = [
+#     ("openwebtext_Qwen2.5-7B_k256",
+#      "Qwen/Qwen2.5-7B"),
+#     ("openwebtext_Qwen2.5-7B_k251_semalign_contrastive_Qwen3-Embedding-8B",
+#      "Qwen/Qwen2.5-7B"),
+# ]
 
 # ==== Watermark-specific Params ====
 gamma = delta = distributions = gaussmark_configs = None
 
 if watermark_type == "mb" or watermark_type == "mb_binom" or watermark_type == "mb_discrete":
     gamma = [0.25]
-    delta = [0.725]
+    delta = [0.8]
 
 elif watermark_type == "noise":
     delta = [1.25]
     distributions = ["symmetric_beta", "gaussian", "uniform"]
 
 elif watermark_type in ["kgw", "kgw_llr", "unigram"]:
+    selector_matrix_model_pairs = [
+        (None, "meta-llama/Llama-2-7b-hf")
+        # (None, "mistralai/Mistral-7B-v0.3")
+    ]
     gamma = [0.25]
-    delta = [1.5, 1.6]
+    delta = [1.5]
 
 elif watermark_type == "distilled":
     seeds = [15485863]
@@ -69,7 +110,9 @@ elif watermark_type == "distilled":
 
 elif watermark_type == "gaussmark":
     selector_matrix_model_pairs = [
-        (None, "meta-llama/Llama-2-7b-hf")
+        # (None, "meta-llama/Llama-2-7b-hf")
+        (None, "mistralai/Mistral-7B-v0.3"),
+        # (None, "Qwen/Qwen2.5-7B")
     ]
     gaussmark_configs = [
         ("lm_head.weight", sigma)
@@ -77,27 +120,22 @@ elif watermark_type == "gaussmark":
     ]
 
     gaussmark_configs = [
-        ("model.layers.20.mlp.up_proj.weight", 0.005)
-    ]
-
-    gaussmark_configs = [
-        ("model.layers.27.mlp.up_proj.weight", 0.04)
-    ]
-
-    gaussmark_configs = [
         ("model.layers.27.mlp.up_proj.weight", sigma)
         for sigma in [0.02, 0.025, 0.03, 0.035, 0.045]
     ]
+
+    gaussmark_configs = [
+        ("model.layers.20.mlp.up_proj.weight", 0.005)
+    ]
+
+    # gaussmark_configs = [
+    #     ("model.layers.27.mlp.up_proj.weight", 0.04)
+    # ]
 
 elif watermark_type == "rl":
     seeds = [15485863]
     base_dir = "/pool.ssd/users/miroojin/watermarking_rl"
     rl_model_path = f"{base_dir}/c4_llama2-7b_llama2-1.1b_b4_step2500_dosample"
-elif watermark_type == "binoc":
-    seeds = [15485863]
-    base_dir = "./binoculars_ft_c4"
-    binoc_performer_lora_path = f"{base_dir}/performer_model_lora_L0_2.0_lambda_0.005"
-    binoc_observer_lora_path = f"{base_dir}/observer_model_lora_L0_2.0_lambda_0.005"
 
 
 def build_jobs_mb():
@@ -106,7 +144,7 @@ def build_jobs_mb():
             'gamma': g, 'delta': d,
             'dataset': dataset, 'model': model, 'seed': seed, 'step': step,
             'selector_matrix_dir': os.path.join(SAVED_MODELS_BASE_DIR, selector_matrix_dir),
-            'checkpoint_dir': os.path.join(CHECKPOINT_BASE_DIR, selector_matrix_dir + CHECKPOINT_DIR_SUFFIX)
+            'checkpoint_dir': os.path.join(CHECKPOINT_BASE_DIR, selector_matrix_dir + CHECKPOINT_DIR_SUFFIX + f"_seed{seed}")
         })
         for gpu, (g, d, dataset, (selector_matrix_dir, model), seed, step) in enumerate(
             itertools.product(gamma, delta, datasets, selector_matrix_model_pairs, seeds, steps))
@@ -177,7 +215,8 @@ def build_jobs_gaussmark():
     for gpu, (gaussmark_cfg, dataset, (_, model), seed, step) in enumerate(product_iter):
         layer, sigma = gaussmark_cfg
         model_suffix = model.split("/")[-1]
-        checkpoint_folder = f"gaussmark_{model_suffix}" + CHECKPOINT_DIR_SUFFIX
+        checkpoint_folder = f"gaussmark_{model_suffix}" + \
+            CHECKPOINT_DIR_SUFFIX + f"_seed{seed}"
         job = (
             gpu,
             {
@@ -202,19 +241,6 @@ def build_jobs_rl():
             'gamma': 0, 'delta': 0,
             'dataset': dataset, 'model': model, 'seed': seed,
             'rl_model_path': rl_model_path
-        })
-        for gpu, (dataset, (_, model), seed) in enumerate(
-            itertools.product(datasets, selector_matrix_model_pairs, seeds))
-    ]
-
-
-def build_jobs_binoc():
-    return [
-        (gpu, {
-            'gamma': 0, 'delta': 0,
-            'dataset': dataset, 'model': model, 'seed': seed,
-            'performer_lora_path': binoc_performer_lora_path,
-            'observer_lora_path': binoc_observer_lora_path
         })
         for gpu, (dataset, (_, model), seed) in enumerate(
             itertools.product(datasets, selector_matrix_model_pairs, seeds))
@@ -251,8 +277,6 @@ def run_job_common(args_and_locks):
         '--num_samples', str(num_samples),
         '--sigma', str(param.get('sigma', 0)),
         '--rl_model_path', param.get('rl_model_path', '.'),
-        '--binoc_performer_lora_path', param.get('performer_lora_path', '.'),
-        '--binoc_observer_lora_path', param.get('observer_lora_path', '.'),
         '--checkpoint_dir', checkpoint_dir,
         '--step', str(param.get('step', 0)),
         '--selector_matrix_dir', selector_matrix_dir
@@ -308,8 +332,6 @@ if __name__ == '__main__':
         jobs = build_jobs_gaussmark()
     elif watermark_type == "rl":
         jobs = build_jobs_rl()
-    elif watermark_type == "binoc":
-        jobs = build_jobs_binoc()
     else:
         raise ValueError(f"Unsupported watermark_type: {watermark_type}")
 

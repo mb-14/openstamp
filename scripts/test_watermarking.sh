@@ -14,8 +14,6 @@ sigma=0.018
 eval_ppl=1
 target_param_name="lm_head.weight"
 rl_model_path="."
-binoc_performer_lora_path="."
-binoc_observer_lora_path="."
 step=0
 checkpoint_dir="."
 selector_matrix_dir=""
@@ -80,14 +78,6 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   --rl_model_path)
     rl_model_path="$2"
-    shift
-    ;;
-  --binoc_performer_lora_path)
-    binoc_performer_lora_path="$2"
-    shift
-    ;;
-  --binoc_observer_lora_path)
-    binoc_observer_lora_path="$2"
     shift
     ;;
   --checkpoint_dir)
@@ -156,7 +146,7 @@ elif [ "$watermark" == "mb" ] || [ "$watermark" == "mb_binom" ] || [ "$watermark
   K="$k"
 elif [ "$watermark" == "kgw" ] || [ "$watermark" == "kgw_llr" ] || [ "$watermark" == "unigram" ]; then
   output_file="${output_dir}/output_seed=${SEED}_delta=${DELTA}_gamma=${GAMMA}_watermark=${watermark}_dataset=${dataset}"
-elif [ "$watermark" == "rl" ] || [ "$watermark" == "binoc" ] || [ "$watermark" == "distilled" ]; then
+elif [ "$watermark" == "rl" ] || [ "$watermark" == "distilled" ]; then
   output_file="${output_dir}/output_watermark=${watermark}_dataset=${dataset}"
 elif [ "$watermark" == "noise" ]; then
   output_file="${output_dir}/output_seed=${SEED}_distribution=${distribution}_delta=${DELTA}_watermark=${watermark}_dataset=${dataset}"
@@ -185,8 +175,6 @@ if [ "$generate" -eq 1 ]; then
     --target_param_name $target_param_name \
     --distribution $distribution \
     --rl_model_path $rl_model_path \
-    --binoc_performer_lora_path $binoc_performer_lora_path \
-    --binoc_observer_lora_path $binoc_observer_lora_path \
     --checkpoint_dir $checkpoint_dir \
     --step $step \
     --selector_matrix_dir $selector_matrix_dir &>"$log_dir/generate_${timestamp}.log"

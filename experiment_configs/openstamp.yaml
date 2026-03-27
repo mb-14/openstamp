@@ -1,0 +1,16 @@
+method: mb
+
+common:
+  gpus: [0]
+  datasets: [realnewslike]
+  watermark_seeds: [12997009, 22983996, 15485863]
+
+configs:
+  - model_name: meta-llama/Llama-2-7b-hf
+    gamma: 0.25
+    delta: 1.0
+    selector_matrix_dir: saved_models_new/openwebtext_Llama-2-7b-hf_k254_semalign_contrastive_Qwen3-Embedding-8B
+  - model_name: mistralai/Mistral-7B-v0.3
+    gamma: 0.25
+    delta: 1.0
+    selector_matrix_dir: saved_models_new/openwebtext_Mistral-7B-v0.3_k254_semalign_contrastive_Qwen3-Embedding-8B

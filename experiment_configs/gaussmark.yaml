@@ -1,0 +1,14 @@
+method: gaussmark
+
+common:
+  gpus: [0]
+  datasets: [realnewslike]
+  watermark_seeds: [12997009, 22983996, 15485863]
+
+configs:
+  - model_name: meta-llama/Llama-2-7b-hf
+    target_param_name: model.layers.27.mlp.up_proj.weight
+    sigma: 0.04
+  - model_name: mistralai/Mistral-7B-v0.3
+    target_param_name: model.layers.20.mlp.up_proj.weight
+    sigma: 0.005
