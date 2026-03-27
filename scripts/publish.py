@@ -65,15 +65,15 @@ def parse_args():
     parser.add_argument(
         "--watermark-type",
         type=str,
-        default="mb",
-        choices=["gaussmark", "mb"],
-        help="Type of watermark: gaussmark or mb.",
+        default="openstamp",
+        choices=["gaussmark", "openstamp"],
+        help="Type of watermark: gaussmark or openstamp.",
     )
     parser.add_argument(
         "--selector-matrix-dir",
         type=str,
         default=None,
-        help="Directory containing selector_matrix.pth and config (selector_metrics.json or config.json). Required for mb.",
+        help="Directory containing selector_matrix.pth and config (selector_metrics.json or config.json). Required for openstamp.",
     )
     parser.add_argument(
         "--seed",
@@ -164,9 +164,16 @@ def main():
         print(f"L2 norm of watermark diff: {l2}")
         std = diff.std(unbiased=False).item()
 
-    elif watermark_type == "mb":
+        watermark_config = {
+            "watermark_type": "gaussmark",
+            "sigma": sigma,
+            "seed": seed,
+            "target_param_name": target_layer,
+        }
+
+    elif watermark_type == "openstamp":
         if args.selector_matrix_dir is None:
-            raise ValueError("--selector-matrix-dir is required for watermark-type mb")
+            raise ValueError("--selector-matrix-dir is required for watermark-type openstamp")
         config, matrix_path = load_selector_config(args.selector_matrix_dir)
         final_weight = torch.load(matrix_path, map_location="cpu")
         k = final_weight.shape[0]
@@ -177,8 +184,7 @@ def main():
         embedding_model = config.get("embedding_model") if config else None
 
         watermark_config = {
-            "watermark_type": "mb",
-            "model_name": model_name,
+            "watermark_type": "openstamp",
             "delta": delta,
             "gamma": gamma,
             "seed": seed,
@@ -212,19 +218,9 @@ def main():
 
     model_name_slug = model_slug(model_name)
     if watermark_type == "gaussmark":
-        watermarked_repo_name = f"{model_name_slug}-wm-gaussmark-s{watermark.sigma}-seed{seed}"
-    else:  # mb
-        base_name = f"{model_name_slug}-wm-openstamp-k{k}-seed{seed}"
-        if sem_align and (align_method or embedding_model):
-            parts = ["semalign"]
-            if align_method:
-                parts.append(align_method)
-            if embedding_model:
-                parts.append(embedding_model)
-            suffix = "-".join(parts)
-            watermarked_repo_name = f"{model_name_slug}-wm-openstamp-{suffix}-k{k}-seed{seed}"
-        else:
-            watermarked_repo_name = base_name
+        watermarked_repo_name = f"{model_name_slug}-gaussmark-s{watermark.sigma}-seed{seed}"
+    else:
+        watermarked_repo_name = f"{model_name_slug}-openstamp-k{k}-delta{delta}-gamma{gamma}-seed{seed}"
 
     print(f"Watermarked model name: {watermarked_repo_name}")
 
