@@ -6,7 +6,7 @@ GAMMA=0.5
 NUM_SAMPLES=500
 PARAPHRASE=0
 SEED=15485863
-watermark="mb"
+watermark="openstamp"
 generate=1
 dataset="realnewslike"
 model="meta-llama/Llama-2-7b-hf"
@@ -116,9 +116,9 @@ timestamp=$(date +"%Y%m%d_%H%M%S_%3N")
 # if watermark is gaussmark, set the output file name accordingly
 if [ "$watermark" == "gaussmark" ]; then
   output_file="${output_dir}/output_seed=${SEED}_sigma=${sigma}_watermark=${watermark}_dataset=${dataset}"
-elif [ "$watermark" == "mb" ] || [ "$watermark" == "mb_binom" ] || [ "$watermark" == "mb_discrete" ]; then
+elif [ "$watermark" == "openstamp" ] || [ "$watermark" == "openstamp_binom" ] || [ "$watermark" == "openstamp_discrete" ]; then
   if [ -z "$selector_matrix_dir" ]; then
-    echo "For MB watermarking, --selector_matrix_dir is required."
+    echo "For OpenStamp watermarking, --selector_matrix_dir is required."
     exit 1
   fi
   selector_metrics_path="${selector_matrix_dir%/}/selector_metrics.json"

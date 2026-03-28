@@ -18,6 +18,7 @@ MISTRAL = "mistralai/Mistral-7B-v0.3"
 QWEN = "Qwen/Qwen2.5-7B"
 PHI4 = "microsoft/phi-4"
 SMOLLM2 = "HuggingFaceTB/SmolLM2-1.7B"
+OLMO = "allenai/Olmo-3-1025-7B"
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -60,7 +61,7 @@ def parse_args():
         type=str,
         default=LLAMA,
         help="Base model name or path.",
-        choices=[LLAMA, MISTRAL, QWEN, PHI4, SMOLLM2],
+        choices=[LLAMA, MISTRAL, QWEN, PHI4, SMOLLM2, OLMO],
     )
     parser.add_argument(
         "--watermark-type",
@@ -99,10 +100,11 @@ def parse_args():
 def model_slug(model_name: str) -> str:
     slug_map = {
         LLAMA: "llama2-7b",
-        MISTRAL: "mistral-7b-v03",
-        QWEN: "qwen2p5-7b",
+        MISTRAL: "mistral-7b-v0.3",
+        QWEN: "qwen2.5-7b",
         PHI4: "phi-4",
-        SMOLLM2: "smollm2-1p7b",
+        SMOLLM2: "smollm2-1.7b",
+        OLMO: "olmo-3-1025-7b",
     }
     if model_name in slug_map:
         return slug_map[model_name]
@@ -176,7 +178,7 @@ def main():
             raise ValueError("--selector-matrix-dir is required for watermark-type openstamp")
         config, matrix_path = load_selector_config(args.selector_matrix_dir)
         final_weight = torch.load(matrix_path, map_location="cpu")
-        k = final_weight.shape[0]
+        L = final_weight.shape[0]
         delta = 1.0
         gamma = 0.25
         sem_align = bool(config.get("sem_align", False)) if config else False
@@ -190,11 +192,11 @@ def main():
             "delta": delta,
             "gamma": gamma,
             "seed": seed,
-            "num_clusters": int(k),
+            "L": int(L),
             "selector_matrix_path": selector_matrix_filename,
         }
 
-        print(f"k = {k}, sem_align = {sem_align}, align_method = {align_method}, embedding_model = {embedding_model}")
+        print(f"L = {L}, sem_align = {sem_align}, align_method = {align_method}, embedding_model = {embedding_model}")
 
         base_target_param = get_param(model, "lm_head.weight").detach().clone().cpu()
 
@@ -223,7 +225,7 @@ def main():
     if watermark_type == "gaussmark":
         watermarked_repo_name = f"{model_name_slug}-gaussmark-s{watermark.sigma}"
     else:
-        watermarked_repo_name = f"{model_name_slug}-openstamp-k{k}-delta{delta}-gamma{gamma}"
+        watermarked_repo_name = f"{model_name_slug}-openstamp-L{L}-delta{delta}-gamma{gamma}"
 
     print(f"Watermarked model name: {watermarked_repo_name}")
 
@@ -237,6 +239,19 @@ def main():
         with open(config_save_path, "w") as f:
             json.dump(watermark_config, f, indent=2)
         print(f"Watermark config saved to {config_save_path}")
+
+    readme_template_path = os.path.join(REPO_ROOT, "assets", "README.md")
+    if os.path.isfile(readme_template_path):
+        with open(readme_template_path, "r") as f:
+            readme_template = f.read()
+        readme_data = dict(watermark_config) if watermark_config else {}
+        readme_data["base_model"] = model_name
+        config_json = json.dumps(readme_data, indent=2)
+        readme_filled = readme_template.replace("{{CONFIG_JSON}}", config_json)
+        readme_dest = os.path.join(save_path, "README.md")
+        with open(readme_dest, "w") as f:
+            f.write(readme_filled)
+        print(f"README written to {readme_dest}")
 
     print(f"Watermarked model saved to {save_path}")
 
@@ -265,11 +280,10 @@ def main():
                     repo_type="model",
                     commit_message="Add selector matrix",
                 )
-        # Upload README.md from assets if present
-        readme_src = os.path.join(REPO_ROOT, "assets", "README.md")
-        if os.path.isfile(readme_src):
+        readme_hub = os.path.join(save_path, "README.md")
+        if os.path.isfile(readme_hub):
             HfApi().upload_file(
-                path_or_fileobj=readme_src,
+                path_or_fileobj=readme_hub,
                 path_in_repo="README.md",
                 repo_id=repo_id,
                 repo_type="model",
