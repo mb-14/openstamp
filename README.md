@@ -68,7 +68,7 @@ All available configs are in `experiment_configs/`:
 
 ### Generating text from watermarked models
 
-Load the checkpoint with `transformers` and run `generate` as usual; the watermark is applied during sampling.
+Load the watermarked model with`transformers` and run `generate` as usual; the watermark is applied during sampling.
 
 ```python
 import torch
