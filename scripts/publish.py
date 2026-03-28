@@ -183,12 +183,15 @@ def main():
         align_method = config.get("align_method") if config else None
         embedding_model = config.get("embedding_model") if config else None
 
+        # Reference to selector matrix path (relative to model save dir)
+        selector_matrix_filename = "selector_matrix.pth"
         watermark_config = {
             "watermark_type": "openstamp",
             "delta": delta,
             "gamma": gamma,
             "seed": seed,
             "num_clusters": int(k),
+            "selector_matrix_path": selector_matrix_filename,
         }
 
         print(f"k = {k}, sem_align = {sem_align}, align_method = {align_method}, embedding_model = {embedding_model}")
@@ -218,9 +221,9 @@ def main():
 
     model_name_slug = model_slug(model_name)
     if watermark_type == "gaussmark":
-        watermarked_repo_name = f"{model_name_slug}-gaussmark-s{watermark.sigma}-seed{seed}"
+        watermarked_repo_name = f"{model_name_slug}-gaussmark-s{watermark.sigma}"
     else:
-        watermarked_repo_name = f"{model_name_slug}-openstamp-k{k}-delta{delta}-gamma{gamma}-seed{seed}"
+        watermarked_repo_name = f"{model_name_slug}-openstamp-k{k}-delta{delta}-gamma{gamma}"
 
     print(f"Watermarked model name: {watermarked_repo_name}")
 
@@ -238,7 +241,7 @@ def main():
     print(f"Watermarked model saved to {save_path}")
 
     if args.publish_to_huggingface:
-        repo_id = watermarked_repo_name
+        repo_id = f"openstamp/{watermarked_repo_name}"
         print(f"Pushing to Hugging Face Hub as {repo_id} ...")
         watermarked_model.push_to_hub(repo_id)
         tokenizer.push_to_hub(repo_id)
@@ -250,6 +253,27 @@ def main():
                 repo_id=repo_id,
                 repo_type="model",
                 commit_message="Add watermark config",
+            )
+        # Upload selector_matrix.pth if present
+        if args.selector_matrix_dir is not None:
+            selector_matrix_path = os.path.join(os.path.abspath(args.selector_matrix_dir), "selector_matrix.pth")
+            if os.path.isfile(selector_matrix_path):
+                HfApi().upload_file(
+                    path_or_fileobj=selector_matrix_path,
+                    path_in_repo="selector_matrix.pth",
+                    repo_id=repo_id,
+                    repo_type="model",
+                    commit_message="Add selector matrix",
+                )
+        # Upload README.md from assets if present
+        readme_src = os.path.join(REPO_ROOT, "assets", "README.md")
+        if os.path.isfile(readme_src):
+            HfApi().upload_file(
+                path_or_fileobj=readme_src,
+                path_in_repo="README.md",
+                repo_id=repo_id,
+                repo_type="model",
+                commit_message="Add model README",
             )
         print("Done pushing to Hugging Face Hub.")
 
