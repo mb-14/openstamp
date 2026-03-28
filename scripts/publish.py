@@ -23,7 +23,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from huggingface_hub import HfApi
 
-from src.mbmark import MbMark, Mode
+from src.openstamp import OpenStamp, Mode
 from src.gaussmark import GaussMark
 
 
@@ -198,7 +198,7 @@ def main():
 
         base_target_param = get_param(model, "lm_head.weight").detach().clone().cpu()
 
-        watermark = MbMark.mb(
+        watermark = OpenStamp.from_config(
             delta=delta,
             gamma=gamma,
             seed=seed,

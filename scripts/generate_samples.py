@@ -1,5 +1,5 @@
 import argparse
-from src.mbmark import MbMark, Mode
+from src.openstamp import OpenStamp, Mode
 from src.gaussmark import GaussMark
 from src.kgwmark import KGWMark
 from src.kgw_distilled import KGWDistilled
@@ -290,7 +290,7 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
         with open(selector_metrics_path, "r") as f:
             selector_metrics = json.load(f)
     final_weight = torch.load(final_matrix_path)
-    mb_mark = MbMark.mb(
+    mb_mark = OpenStamp.from_config(
         delta=args.delta,
         gamma=args.gamma,
         seed=args.watermark_seed,
@@ -302,7 +302,7 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
     )
     watermarked_model = mb_mark.model
 elif args.watermark == "noise":
-    mb_mark = MbMark.noise_injection(
+    mb_mark = OpenStamp.noise_injection(
         delta=args.delta,
         seed=args.watermark_seed,
         model=model,

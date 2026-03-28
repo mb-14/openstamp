@@ -1,6 +1,6 @@
 # Watermark Detection Instructions
 
-This model is watermarked using OpenStamp. To detect watermarked text, use the detection utilities in `src.mbmark`.
+This model is watermarked using OpenStamp. To detect watermarked text, use the detection utilities in `src.openstamp`.
 
 ## Quickstart
 
@@ -11,7 +11,7 @@ This model is watermarked using OpenStamp. To detect watermarked text, use the d
 Example usage:
 
 ```python
-from src.mbmark import MbMark, Mode
+from src.openstamp import MbMark, Mode
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import json

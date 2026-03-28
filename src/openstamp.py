@@ -28,7 +28,7 @@ class HiddenStateExtractor(torch.nn.Module):
         return outputs.last_hidden_state
 
 
-class MbMark:
+class OpenStamp:
 
     model_to_hs_norm = {
         "meta-llama/Llama-2-7b-hf": 118.0,
@@ -76,7 +76,7 @@ class MbMark:
         return samples.to(device)
 
     @classmethod
-    def mb(cls, delta, gamma, seed, final_weight, model, tokenizer, unembedding_param_name, detection_type="llr", mode=Mode.Detect):
+    def from_config(cls, delta, gamma, seed, final_weight, model, tokenizer, unembedding_param_name, detection_type="llr", mode=Mode.Detect):
         unembedding = getattr(model, unembedding_param_name).weight.data
         vocab_size = model.config.vocab_size or len(tokenizer)
 

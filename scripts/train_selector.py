@@ -5,7 +5,7 @@ from __future__ import annotations
 # local import to avoid cost if not needed
 # from src.kmeans import MiniBatchKMeans
 from src.kmeans_pytorch import MiniBatchKMeans
-from src.mbmark import MbMark  # local import to avoid cost if not needed
+from src.openstamp import OpenStamp  # local import to avoid cost if not needed
 
 import argparse
 import json
@@ -577,7 +577,7 @@ def main() -> None:
         logits_val, labels=val_labels, p=1)
     t0 = _log_phase("one_hotness_metrics", t0)
 
-    watermark_matrix = MbMark._make_watermarking_matrix(
+    watermark_matrix = OpenStamp._make_watermarking_matrix(
         32000, 1, 0.25, seed=prf_key, n_clusters=k
     )
     watermark_matrix = watermark_matrix.to(final_matrix.device).to(final_matrix.dtype)

@@ -7,7 +7,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from trl import ModelConfig, SFTConfig, TrlParser, SFTTrainer
 from peft import LoraConfig, get_peft_model
-from src.mbmark import MbMark, Mode
+from src.openstamp import OpenStamp, Mode
 from src.gaussmark import GaussMark
 from dataclasses import dataclass
 import os
@@ -78,7 +78,7 @@ def main():
         selector_matrix_dir = custom_args.selector_matrix_dir
         selector_matrix_path = os.path.join(selector_matrix_dir, "selector_matrix.pth")
         final_weight = torch.load(selector_matrix_path)
-        mb_mark = MbMark.mb(
+        mb_mark = OpenStamp.from_config(
             delta=1.0,
             gamma=0.25,
             seed=custom_args.watermark_seed,
