@@ -12,8 +12,8 @@ seeds = [12997009, 22983996, 15485863]
 # models = ["allenai/Olmo-3-1025-7B", "HuggingFaceTB/SmolLM2-1.7B", "Qwen/Qwen2.5-7B", "microsoft/phi-4", "mistralai/Mistral-7B-v0.3"]
 datasets = ["arxiv", "wikipedia", "booksum", "realnewslike"]
 datasets = ["realnewslike"]
-# Options: mb, mb_binom, noise, kgw, kgw_llr, distilled, gaussmark, rl, unigram
-watermark_type = "mb"
+# Options: openstamp, openstamp_binom, openstamp_discrete, noise, kgw, kgw_llr, distilled, gaussmark, rl, unigram
+watermark_type = "openstamp"
 paraphrase = 0
 generate = 1
 eval_ppl = 1
@@ -87,7 +87,7 @@ selector_matrix_model_pairs = [
 # ==== Watermark-specific Params ====
 gamma = delta = distributions = gaussmark_configs = None
 
-if watermark_type == "mb" or watermark_type == "mb_binom" or watermark_type == "mb_discrete":
+if watermark_type == "openstamp" or watermark_type == "openstamp_binom" or watermark_type == "openstamp_discrete":
     gamma = [0.25]
     delta = [0.8]
 
@@ -138,7 +138,7 @@ elif watermark_type == "rl":
     rl_model_path = f"{base_dir}/c4_llama2-7b_llama2-1.1b_b4_step2500_dosample"
 
 
-def build_jobs_mb():
+def build_jobs_openstamp():
     return [
         (gpu, {
             'gamma': g, 'delta': d,
@@ -318,8 +318,8 @@ if __name__ == '__main__':
     gpu_locks = {gpu: manager.Semaphore(1) for gpu in gpus}
 
     # Select builder
-    if watermark_type in ["mb", "mb_binom", "mb_discrete"]:
-        jobs = build_jobs_mb()
+    if watermark_type in ["openstamp", "openstamp_binom", "openstamp_discrete"]:
+        jobs = build_jobs_openstamp()
     elif watermark_type == "noise":
         jobs = build_jobs_noise()
     elif watermark_type in ["kgw", "kgw_llr"]:

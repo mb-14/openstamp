@@ -1,4 +1,4 @@
-method: mb
+method: openstamp
 
 common:
   gpus: [0]

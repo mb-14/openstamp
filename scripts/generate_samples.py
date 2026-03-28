@@ -42,7 +42,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--generation_seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="mb", choices=["mb", "mb_binom", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl", "mb_discrete", "unigram"],)
+                        default="openstamp", choices=["openstamp", "openstamp_binom", "openstamp_discrete", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl", "unigram"],)
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
@@ -275,7 +275,7 @@ watermarked_model = None
 watermarked_processor = None
 temperature = args.temperature
 
-if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
+if args.watermark in ["openstamp", "openstamp_binom", "openstamp_discrete"]:
     # Load final weights into a torch tensor
     selector_metrics = None
     selector_metrics_path = None
@@ -290,7 +290,7 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
         with open(selector_metrics_path, "r") as f:
             selector_metrics = json.load(f)
     final_weight = torch.load(final_matrix_path)
-    mb_mark = OpenStamp.from_config(
+    openstamp_mark = OpenStamp.from_config(
         delta=args.delta,
         gamma=args.gamma,
         seed=args.watermark_seed,
@@ -300,9 +300,9 @@ if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
         tokenizer=tokenizer,
         mode=Mode.Generate,
     )
-    watermarked_model = mb_mark.model
+    watermarked_model = openstamp_mark.model
 elif args.watermark == "noise":
-    mb_mark = OpenStamp.noise_injection(
+    openstamp_mark = OpenStamp.noise_injection(
         delta=args.delta,
         seed=args.watermark_seed,
         model=model,
@@ -312,7 +312,7 @@ elif args.watermark == "noise":
         mode=Mode.Generate
     )
 
-    watermarked_model = mb_mark.model
+    watermarked_model = openstamp_mark.model
 elif args.watermark == "gaussmark":
     target_param_name = args.target_param_name
     sigma = args.sigma
@@ -431,7 +431,7 @@ data = {
     "model_text": model_text,
     "full_model_text": full_model_text
 }
-if args.watermark in ["mb", "mb_binom", "mb_discrete"]:
+if args.watermark in ["openstamp", "openstamp_binom", "openstamp_discrete"]:
     semalign = bool(selector_metrics.get("sem_align", False)
                     ) if selector_metrics else False
     embedding_model = selector_metrics.get(
