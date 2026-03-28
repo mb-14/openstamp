@@ -134,7 +134,7 @@ elif watermark_type == "gaussmark":
 
 elif watermark_type == "rl":
     seeds = [15485863]
-    base_dir = "/pool.ssd/users/miroojin/watermarking_rl"
+    base_dir = "watermarking_rl"
     rl_model_path = f"{base_dir}/c4_llama2-7b_llama2-1.1b_b4_step2500_dosample"
 
 

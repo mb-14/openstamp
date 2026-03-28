@@ -4,7 +4,6 @@ A watermarking method for open-source Large Language Models.
 
 ## Setup Environment
 
-
 ```bash
 conda create -n openstamp python=3.12 -y
 conda activate openstamp
@@ -52,6 +51,7 @@ python scripts/aggregate_metrics.py \
 ```
 
 All available configs are in `experiment_configs/`:
+
 - [OpenStamp](experiment_configs/openstamp.yaml)
 - [KGW](experiment_configs/kgw.yaml)
 - [KGW+LLR](experiment_configs/kgw_llr.yaml)
@@ -144,3 +144,4 @@ llr = float(scores[0])
 is_watermarked = llr > THRESHOLD
 print(llr, is_watermarked)
 ```
+
