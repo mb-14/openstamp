@@ -64,6 +64,7 @@ All available configs are in `experiment_configs/`:
 - [openstamp/olmo-3-1025-7b-openstamp-L253-delta1.0-gamma0.25](https://huggingface.co/openstamp/olmo-3-1025-7b-openstamp-L253-delta1.0-gamma0.25)
 - [openstamp/smollm2-1.7b-openstamp-L254-delta1.0-gamma0.25](https://huggingface.co/openstamp/smollm2-1.7b-openstamp-L254-delta1.0-gamma0.25)
 - [openstamp/mistral-7b-v0.3-openstamp-L254-delta1.0-gamma0.25](https://huggingface.co/openstamp/mistral-7b-v0.3-openstamp-L254-delta1.0-gamma0.25)
+- [openstamp/qwen2.5-7b-openstamp-L251-delta1.0-gamma0.25](https://huggingface.co/openstamp/qwen2.5-7b-openstamp-L251-delta1.0-gamma0.25)
 - [openstamp/llama2-7b-openstamp-L254-delta1.0-gamma0.25](https://huggingface.co/openstamp/llama2-7b-openstamp-L254-delta1.0-gamma0.25)
 
 ### Generating text from watermarked models
