@@ -40,6 +40,7 @@ RESCALE_MATRIX = True
 MIN_CLUSTER_SIZE = 10
 MAX_PER_CLASS = 30_000
 CLEAN_CHUNK_SIZE = 200_000
+DEFAULT_PROJECTION_CHUNK_SIZE = 65_536
 
 
 def parse_args() -> argparse.Namespace:
@@ -93,6 +94,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Directory to store selector_matrix and selector_metrics files.",
     )
+    parser.add_argument(
+        "--projection-chunk-size",
+        type=int,
+        default=DEFAULT_PROJECTION_CHUNK_SIZE,
+        help="Rows per chunk when projecting hidden states with --sem-align.",
+    )
     return parser.parse_args()
 
 
@@ -133,6 +140,31 @@ def load_alignment_matrix(
     print(f"Loading alignment matrix from {align_path}")
     W_align = torch.load(align_path)
     return W_align
+
+
+def project_hidden_states_chunked(
+    hidden_states: torch.Tensor,
+    W_align: torch.Tensor,
+    chunk_size: int = DEFAULT_PROJECTION_CHUNK_SIZE,
+) -> torch.Tensor:
+    """Project hidden states through the alignment matrix in chunks.
+
+    Equivalent to ``F.linear(hidden_states, W_align.T)`` but with a progress bar
+    and lower peak memory than materializing very large intermediate buffers.
+    """
+    n_samples = hidden_states.shape[0]
+    weight = W_align.T
+    out_dim = weight.shape[0]
+    projected = torch.empty(
+        n_samples,
+        out_dim,
+        dtype=hidden_states.dtype,
+        device=hidden_states.device,
+    )
+    for start in trange(0, n_samples, chunk_size, desc="Projecting hidden states"):
+        end = min(start + chunk_size, n_samples)
+        projected[start:end] = F.linear(hidden_states[start:end], weight)
+    return projected
 
 
 def generate_rand_proj_labels(hidden_states: torch.Tensor, prf_key: int, k: int) -> torch.Tensor:
@@ -495,8 +527,12 @@ def main() -> None:
             data_dir, args.embedding_model, args.align_method
         ).to(dtype=hidden_states.dtype)
         print(f"Alignment matrix shape: {W_align.shape}")
-        # Project hidden states to embedding space for clustering
-        hidden_states_for_clustering = F.linear(hidden_states, W_align.T)
+        print(f"Projecting in chunks of {args.projection_chunk_size:,} rows...")
+        hidden_states_for_clustering = project_hidden_states_chunked(
+            hidden_states,
+            W_align,
+            chunk_size=args.projection_chunk_size,
+        )
         print(
             f"Projected hidden states shape: {hidden_states_for_clustering.shape}")
         t0 = _log_phase("semantic_alignment_projection", t0)

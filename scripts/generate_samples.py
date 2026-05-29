@@ -12,11 +12,11 @@ import aiohttp
 import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm.notebook import tqdm
-from datasets import load_dataset
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, LogitsProcessorList, AutoConfig
 from torch.utils.data import TensorDataset
 from src.rl_watermark.ds_utils import convert_linear_layer_to_lora
+from src.dataset_registry import dataset_registry, load_registry_dataset
 from src.utils import load_model
 import random
 from peft import PeftModel
@@ -47,8 +47,12 @@ def parse_args():
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
                         help="Distribution to sample the offset matrix from")
-    parser.add_argument('--dataset', type=str,
-                        default="realnewslike", choices=["realnewslike", "wikipedia", "arxiv", "booksum"])
+    parser.add_argument(
+        '--dataset',
+        type=str,
+        default="realnewslike",
+        choices=sorted(dataset_registry.keys()),
+    )
 
     parser.add_argument("--sigma", type=float, default=0.008,
                         help="Standard deviation for GaussMark")
@@ -70,38 +74,6 @@ def parse_args():
     args = parser.parse_args()
 
     return args
-
-
-dataset_registry = {
-    "realnewslike": {
-        "path": "allenai/c4",
-        "config": "realnewslike",
-        "split": "validation",
-        "data_field": "text",
-        "streaming": False,
-    },
-    "wikipedia": {
-        "path": "wikipedia",
-        "config": "20220301.en",
-        "split": "train",
-        "data_field": "text",
-        "streaming": True,
-    },
-    "arxiv": {
-        "path": "armanc/scientific_papers",
-        "config": "arxiv",
-        "split": "test",
-        "data_field": "article",
-        "streaming": False,
-    },
-    "booksum": {
-        "path": "kmfoda/booksum",
-        "config": None,
-        "split": "test",
-        "data_field": "chapter",
-        "streaming": False,
-    },
-}
 
 args = parse_args()
 print(args)
@@ -212,13 +184,10 @@ for key in selected_keys:
     spec = dataset_registry[key]
 
     # Load dataset
-    dataset = load_dataset(
-        spec["path"],
-        spec["config"],
-        split=spec["split"],
-        streaming=spec["streaming"],
+    dataset = load_registry_dataset(
+        spec,
         trust_remote_code=True,
-        storage_options={'client_kwargs': {'timeout': aiohttp.ClientTimeout(total=3600)}}
+        storage_options={'client_kwargs': {'timeout': aiohttp.ClientTimeout(total=3600)}},
     )
 
     # Reduce to necessary field (booksum special case)
