@@ -11,7 +11,7 @@ from datasets import Dataset
 import aiohttp
 import seaborn as sns
 import matplotlib.pyplot as plt
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed, LogitsProcessorList, AutoConfig
 from torch.utils.data import TensorDataset
