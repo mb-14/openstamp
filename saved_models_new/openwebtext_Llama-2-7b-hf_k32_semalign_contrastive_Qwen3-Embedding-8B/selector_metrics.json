@@ -1,0 +1,18 @@
+{
+  "k": 32,
+  "train_accuracy": 0.7530391216278076,
+  "val_accuracy": 0.7457013130187988,
+  "norm_mean": 47.5,
+  "norm_std": 9.1875,
+  "one_hotness": {
+    "l1_error": 0.12451171875,
+    "top1_accuracy": 0.7457013130187988,
+    "mean_gap": 0.482421875,
+    "sharpness": 217088.0
+  },
+  "projection_extreme_fraction": 0.0010252562761306763,
+  "projection_threshold": 3.0,
+  "sem_align": true,
+  "embedding_model": "Qwen3-Embedding-8B",
+  "align_method": "contrastive"
+}
