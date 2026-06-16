@@ -238,19 +238,27 @@ def _run_job_common(args_and_locks: Tuple[Tuple[Any, Dict[str, Any]], Dict[Any, 
                     )
                 run_summaries.append(f"paraphrase_llm: ok ({paraphrase_log})")
 
-            papermill_cmd = [
-                "papermill",
-                "notebooks/test_watermarking_v1.ipynb",
-                os.path.join(log_dir, f"tw_{timestamp}.ipynb"),
+            eval_cmd = [
+                sys.executable,
+                "-m",
+                "scripts.test_watermarking_v1",
+                "--output_file",
+                output_file,
+                "--log_dir",
+                log_dir,
             ]
-            print(f"Executing command: {' '.join(papermill_cmd)}")
-            rc, stdout, stderr = _run_command(papermill_cmd, env)
+            print(f"Executing command: {' '.join(eval_cmd)}")
+            rc, stdout, stderr = _run_command(eval_cmd, env)
+            eval_log = os.path.join(log_dir, f"tw_{timestamp}.log")
+            with open(eval_log, "w", encoding="utf-8") as handle:
+                handle.write(stdout)
+                handle.write(stderr)
             if rc != 0:
                 return (
-                    f"Error on GPU {gpu} during papermill."
-                    f"\nSTDOUT:\n{stdout.strip()}\nSTDERR:\n{stderr.strip()}"
+                    f"Error on GPU {gpu} during test_watermarking_v1. "
+                    f"See log: {eval_log}\nSTDOUT:\n{stdout.strip()}\nSTDERR:\n{stderr.strip()}"
                 )
-            run_summaries.append("papermill: ok")
+            run_summaries.append(f"test_watermarking_v1: ok ({eval_log})")
 
             if eval_ppl:
                 eval_ppl_cmd = [

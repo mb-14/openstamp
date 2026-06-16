@@ -195,7 +195,9 @@ if [ "$PARAPHRASE" -eq 1 ]; then
     --output_file $output_file --num_beams 3 &>"$log_dir/paraphrase_llm_${timestamp}.log"
 fi
 
-MODEL=$model OUTPUT_FILE=$output_file papermill notebooks/test_watermarking_v1.ipynb "$log_dir/tw_$timestamp.ipynb"
+python -m scripts.test_watermarking_v1 \
+  --output_file "$output_file" \
+  --log_dir "$log_dir" &>"$log_dir/tw_${timestamp}.log"
 
 # Evaluate perplexity if eval_ppl is set to 1
 if [ "$eval_ppl" -eq 1 ]; then
