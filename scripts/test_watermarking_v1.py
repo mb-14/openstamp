@@ -48,6 +48,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def compute_metrics(watermark_scores: np.ndarray, null_scores: np.ndarray) -> dict:
+    watermark_scores = np.asarray(watermark_scores, dtype=np.float64)
+    null_scores = np.asarray(null_scores, dtype=np.float64)
+
     min_sweep = min(watermark_scores.min(), null_scores.min()) - 1
     max_sweep = max(watermark_scores.max(), null_scores.max()) + 1
 
@@ -111,14 +114,14 @@ def compute_metrics(watermark_scores: np.ndarray, null_scores: np.ndarray) -> di
     threshold_at_1_fpr = float(roc_thresholds[fpr_diff.argmin()])
 
     return {
-        "auroc": auroc,
-        "best_f1_score": best_f1_score,
+        "auroc": float(auroc),
+        "best_f1_score": float(best_f1_score),
         "tpr_1_fpr": tpr_at_1_fpr,
         "tpr_0.1_fpr": tpr_at_01_fpr,
         "tpr_0.05_fpr": tpr_at_005_fpr,
         "tpr_0.01_fpr": tpr_at_001_fpr,
         "tpr_5_fpr": tpr_at_5_fpr,
-        "best_threshold": best_threshold,
+        "best_threshold": float(best_threshold),
         "threshold_at_1_fpr": threshold_at_1_fpr,
     }
 
