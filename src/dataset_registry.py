@@ -65,6 +65,13 @@ dataset_registry = {
         "data_field": "text",
         "streaming": True,
     },
+    "fineweb2_ja": {
+        "path": "HuggingFaceFW/fineweb-2",
+        "config": "jpn_Jpan",
+        "split": "test",
+        "data_field": "text",
+        "streaming": True,
+    },
     "c4_de": {
         "path": "allenai/c4",
         "config": "de",
