@@ -1,0 +1,7 @@
+model,method,config_id,step,tpr_1_fpr_mean,tpr_1_fpr_std,n_seeds
+Llama-2-7b-hf,openstamp,mb_k254_delta1.0_gamma0.25,0,1.0,0.0,3
+Llama-2-7b-hf,openstamp,mb_k254_delta1.0_gamma0.25,500,0.8446666666666666,0.017009801096230792,3
+Llama-2-7b-hf,openstamp,mb_k254_delta1.0_gamma0.25,1000,0.7253333333333334,0.023860706890897723,3
+Llama-2-7b-hf,openstamp,mb_k254_delta1.0_gamma0.25,1500,0.7173333333333334,0.02081665999466133,3
+Llama-2-7b-hf,openstamp,mb_k254_delta1.0_gamma0.25,2000,0.6873333333333332,0.011718930554164541,3
+Llama-2-7b-hf,openstamp,mb_k254_delta1.0_gamma0.25,2500,0.6826666666666666,0.030088757590391285,3

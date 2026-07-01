@@ -1,0 +1,7 @@
+model,method,config_id,step,tpr_1_fpr_mean,tpr_1_fpr_std,n_seeds
+Mistral-7B-v0.3,openstamp,mb_k254_delta1.0_gamma0.25,0,1.0,0.0,3
+Mistral-7B-v0.3,openstamp,mb_k254_delta1.0_gamma0.25,500,0.5932000000000001,0.02300647251922335,3
+Mistral-7B-v0.3,openstamp,mb_k254_delta1.0_gamma0.25,1000,0.4658333333333333,0.049051843322482115,3
+Mistral-7B-v0.3,openstamp,mb_k254_delta1.0_gamma0.25,1500,0.4664,0.024019251537973553,3
+Mistral-7B-v0.3,openstamp,mb_k254_delta1.0_gamma0.25,2000,0.46657777777777776,0.030558165545095797,3
+Mistral-7B-v0.3,openstamp,mb_k254_delta1.0_gamma0.25,2500,0.3868333333333333,0.037330729075834186,3

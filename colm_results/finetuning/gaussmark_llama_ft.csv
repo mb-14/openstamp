@@ -1,0 +1,7 @@
+model,method,config_id,step,tpr_1_fpr_mean,tpr_1_fpr_std,n_seeds
+Llama-2-7b-hf,gaussmark,gaussmark_sigma0.04,0,0.8686666666666666,0.026025628394590855,3
+Llama-2-7b-hf,gaussmark,gaussmark_sigma0.04,500,0.314,0.041036569057366364,3
+Llama-2-7b-hf,gaussmark,gaussmark_sigma0.04,1000,0.18400000000000002,0.023065125189341593,3
+Llama-2-7b-hf,gaussmark,gaussmark_sigma0.04,1500,0.15266666666666664,0.04801388688008225,3
+Llama-2-7b-hf,gaussmark,gaussmark_sigma0.04,2000,0.12533333333333332,0.01814754345175493,3
+Llama-2-7b-hf,gaussmark,gaussmark_sigma0.04,2500,0.13933333333333334,0.030088757590391358,3

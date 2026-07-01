@@ -1,0 +1,7 @@
+model,method,config_id,step,tpr_1_fpr_mean,tpr_1_fpr_std,n_seeds
+Mistral-7B-v0.3,distilled,distilled,0,0.9986666666666667,0.0011547005383792605,3
+Mistral-7B-v0.3,distilled,distilled,500,0.18266666666666667,0.07214799604516632,3
+Mistral-7B-v0.3,distilled,distilled,1000,0.15533333333333332,0.06506407098647712,3
+Mistral-7B-v0.3,distilled,distilled,1500,0.12666666666666668,0.046231302526895494,3
+Mistral-7B-v0.3,distilled,distilled,2000,0.12266666666666666,0.051393903659221425,3
+Mistral-7B-v0.3,distilled,distilled,2500,0.122,0.04200000000000001,3

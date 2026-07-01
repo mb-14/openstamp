@@ -1,0 +1,7 @@
+model,method,config_id,step,tpr_1_fpr_mean,tpr_1_fpr_std,n_seeds
+Llama-2-7b-hf,distilled,distilled,0,0.9888333333333333,0.0086071675557836,3
+Llama-2-7b-hf,distilled,distilled,500,0.3491666666666666,0.056789817162351694,3
+Llama-2-7b-hf,distilled,distilled,1000,0.2783333333333333,0.055193598662646885,3
+Llama-2-7b-hf,distilled,distilled,1500,0.239,0.05092150822589603,3
+Llama-2-7b-hf,distilled,distilled,2000,0.22833333333333336,0.059214300074672266,3
+Llama-2-7b-hf,distilled,distilled,2500,0.23299999999999998,0.06199193495931546,3
