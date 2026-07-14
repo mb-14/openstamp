@@ -31,8 +31,8 @@ dataset_registry = {
         "streaming": False,
     },
     "wikipedia": {
-        "path": "wikipedia",
-        "config": "20220301.en",
+        "path": "wikimedia/wikipedia",
+        "config": "20231101.en",
         "split": "train",
         "data_field": "text",
         "streaming": True,
