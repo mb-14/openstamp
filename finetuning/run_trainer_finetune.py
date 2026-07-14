@@ -9,8 +9,28 @@ from trl import ModelConfig, SFTConfig, TrlParser, SFTTrainer
 from peft import LoraConfig, get_peft_model
 from src.openstamp import OpenStamp, Mode
 from src.gaussmark import GaussMark
+from src.christmark import ChristMark
 from dataclasses import dataclass
 import os
+
+
+# Fixed method hyperparameters (same as main eval configs).
+OPENSTAMP_DELTA = 1.0
+OPENSTAMP_GAMMA = 0.25
+OPENSTAMP_UNEMBEDDING_PARAM_NAME = "lm_head"
+
+GAUSSMARK_CONFIG = {
+    "meta-llama/Llama-2-7b-hf": {
+        "target_param_name": "model.layers.27.mlp.up_proj.weight",
+        "sigma": 0.04,
+    },
+    "mistralai/Mistral-7B-v0.3": {
+        "target_param_name": "model.layers.20.mlp.up_proj.weight",
+        "sigma": 0.005,
+    },
+}
+
+CHRIST_EPSILON = 0.8
 
 
 @dataclass
@@ -19,7 +39,6 @@ class CustomArgs:
     watermark_seed: int
     watermark_type: str = "openstamp"
     target_param_config: int = 0
-
 
 
 def tokenize_function(examples, tokenizer):
@@ -79,27 +98,44 @@ def main():
         selector_matrix_path = os.path.join(selector_matrix_dir, "selector_matrix.pth")
         final_weight = torch.load(selector_matrix_path)
         mb_mark = OpenStamp.from_config(
-            delta=1.0,
-            gamma=0.25,
+            delta=OPENSTAMP_DELTA,
+            gamma=OPENSTAMP_GAMMA,
             seed=custom_args.watermark_seed,
             final_weight=final_weight,
             model=model,
-            unembedding_param_name="lm_head",
+            unembedding_param_name=OPENSTAMP_UNEMBEDDING_PARAM_NAME,
             tokenizer=tokenizer,
             mode=Mode.Generate,
         )
-
         model = mb_mark.model
-    if watermark_type == "gaussmark":
-        if models_args.model_name_or_path == "meta-llama/Llama-2-7b-hf":
-            target_param_name = "model.layers.27.mlp.up_proj.weight"
-            sigma = 0.04
-        elif models_args.model_name_or_path =="mistralai/Mistral-7B-v0.3":
-            target_param_name = "model.layers.20.mlp.up_proj.weight"
-            sigma = 0.005
-        gaussmark = GaussMark(sigma=sigma, seed=custom_args.watermark_seed,
-                          target_param_name=target_param_name, tokenizer=tokenizer, model=model)
+    elif watermark_type == "gaussmark":
+        gm_cfg = GAUSSMARK_CONFIG.get(models_args.model_name_or_path)
+        if gm_cfg is None:
+            raise ValueError(
+                f"No GaussMark config for model {models_args.model_name_or_path}. "
+                f"Supported: {sorted(GAUSSMARK_CONFIG)}"
+            )
+        gaussmark = GaussMark(
+            sigma=gm_cfg["sigma"],
+            seed=custom_args.watermark_seed,
+            target_param_name=gm_cfg["target_param_name"],
+            tokenizer=tokenizer,
+            model=model,
+        )
         model = gaussmark.model
+    elif watermark_type == "christ":
+        christ = ChristMark(
+            epsilon=CHRIST_EPSILON,
+            seed=custom_args.watermark_seed,
+            tokenizer=tokenizer,
+            model=model,
+        )
+        model = christ.model
+    elif watermark_type == "kgw_distilled":
+        # Distilled checkpoint is already watermarked; no embedding step.
+        pass
+    else:
+        raise ValueError(f"Unsupported watermark_type: {watermark_type}")
 
     #! use the fineweb-edu dataset
     # dataset = load_dataset("HuggingFaceFW/fineweb-edu", name="sample-10BT", split="train", streaming=False)

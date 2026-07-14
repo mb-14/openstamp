@@ -1,5 +1,6 @@
 import argparse
 from src.openstamp import OpenStamp, Mode
+from src.christmark import ChristMark
 from src.gaussmark import GaussMark
 from src.kgwmark import KGWMark
 from src.kgw_distilled import KGWDistilled
@@ -42,7 +43,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--generation_seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="openstamp", choices=["openstamp", "openstamp_binom", "openstamp_discrete", "gaussmark", "noise", "distilled", "kgw", "kgw_llr", "rl", "unigram"],)
+                        default="openstamp", choices=["openstamp", "openstamp_binom", "openstamp_discrete", "gaussmark", "christ", "noise", "distilled", "kgw", "kgw_llr", "rl", "unigram"],)
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
@@ -56,6 +57,8 @@ def parse_args():
 
     parser.add_argument("--sigma", type=float, default=0.008,
                         help="Standard deviation for GaussMark")
+    parser.add_argument("--epsilon", type=float, default=0.5,
+                        help="Standard deviation of Christ et al. lm_head.bias key")
     parser.add_argument("--target_param_name", type=str,
                         default="model.layers.27.mlp.up_proj.weight",)
     parser.add_argument(
@@ -288,6 +291,14 @@ elif args.watermark == "gaussmark":
     gaussmark = GaussMark(sigma=sigma, seed=args.watermark_seed,
                           target_param_name=target_param_name, tokenizer=tokenizer, model=model)
     watermarked_model = gaussmark.model
+elif args.watermark == "christ":
+    christ = ChristMark(
+        epsilon=args.epsilon,
+        seed=args.watermark_seed,
+        tokenizer=tokenizer,
+        model=model,
+    )
+    watermarked_model = christ.model
 elif args.watermark == "distilled":
     watermark = KGWDistilled(model=model, tokenizer=tokenizer, gamma=args.gamma,
                              delta=args.delta, seeding_scheme="simple_1", hash_key=args.watermark_seed, kgw_device="cpu")
@@ -424,6 +435,12 @@ elif args.watermark == "gaussmark":
         "sigma": sigma,
         "watermark_seed": args.watermark_seed,
         "target_param_name": target_param_name
+    }
+elif args.watermark == "christ":
+    config = {
+        "epsilon": args.epsilon,
+        "watermark_seed": args.watermark_seed,
+        "vocab_size": christ.vocab_size,
     }
 elif args.watermark == "noise":
     config = {

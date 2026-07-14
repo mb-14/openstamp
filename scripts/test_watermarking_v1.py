@@ -17,6 +17,7 @@ from scipy.interpolate import interp1d
 from sklearn.metrics import roc_auc_score, roc_curve
 from transformers import AutoTokenizer
 
+from src.christmark import ChristMark
 from src.gaussmark import GaussMark
 from src.kgw_distilled import KGWDistilled
 from src.kgwmark import KGWMark
@@ -140,6 +141,14 @@ def build_watermark(output_data: dict, model, tokenizer):
             target_param_name=config["target_param_name"],
         )
         batch_size = 8
+    elif watermark_type == "christ":
+        watermark = ChristMark(
+            epsilon=config["epsilon"],
+            seed=config["watermark_seed"],
+            tokenizer=tokenizer,
+            model=None,
+            vocab_size=config.get("vocab_size"),
+        )
     elif watermark_type in ["openstamp", "openstamp_binom", "openstamp_discrete"]:
         selector_matrix_dir = config.get("selector_matrix_dir")
         if not selector_matrix_dir:
@@ -303,7 +312,7 @@ def main() -> None:
         tokenizer.pad_token = tokenizer.eos_token
 
     watermark_type = output_data["watermark"]
-    should_load_model = watermark_type not in ["distilled", "kgw", "unigram"]
+    should_load_model = watermark_type not in ["distilled", "kgw", "unigram", "christ"]
     if should_load_model:
         model, tokenizer = load_model(model_name)
     else:

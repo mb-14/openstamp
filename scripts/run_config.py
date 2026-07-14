@@ -63,6 +63,11 @@ def _build_output_file(
         output_file = (
             f"{output_dir}/output_seed={watermark_seed}_sigma={sigma}_watermark={method}_dataset={dataset}"
         )
+    elif method == "christ":
+        epsilon = param["epsilon"]
+        output_file = (
+            f"{output_dir}/output_seed={watermark_seed}_epsilon={epsilon}_watermark={method}_dataset={dataset}"
+        )
     elif method in {"openstamp", "openstamp_binom", "openstamp_discrete"}:
         selector_matrix_dir = param["selector_matrix_dir"]
         delta = param["delta"]

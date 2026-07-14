@@ -5,7 +5,7 @@ base_selector_dir="saved_models_new"
 # --- 1. Parse Arguments ---
 watermark="openstamp"
 model="llama"
-target_config="2" # Default value (config 1: Lora on all internal linear layers + unembedding layer)
+target_config="1" # Default value (config 1: Lora on all internal linear layers + unembedding layer)
 seed=15485863
 distilled_model_path="cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"
 # 0 - Lora on all internal linear layers
@@ -70,7 +70,7 @@ done
 
 # --- 2. Validation ---
 case "$watermark" in
-    "openstamp"|"gaussmark"|"kgw_distilled") echo "Watermark: $watermark" ;;
+    "openstamp"|"gaussmark"|"christ"|"kgw_distilled") echo "Watermark: $watermark" ;;
     *) echo "Error: Invalid watermark type."; exit 1 ;;
 esac
 
@@ -113,10 +113,10 @@ run_train() {
         --max_steps 2500 \
         --num_train_epochs 1 \
         --dtype bfloat16 \
-        --per_device_train_batch_size 2 \
-        --per_device_eval_batch_size 2 \
+        --per_device_train_batch_size 12 \
+        --per_device_eval_batch_size 12 \
         --gradient_checkpointing false \
-        --gradient_accumulation_steps 8 \
+        --gradient_accumulation_steps 4 \
         --do_train true \
         --save_strategy steps \
         --save_steps 500 \
@@ -126,6 +126,7 @@ run_train() {
         --dataset_num_proc 32 \
         --lr_scheduler_type cosine \
         --optim adafactor \
+        --loss_type nll \
         --gpu_ids all
     
     echo "Checkpoint saved to: $final_output_dir"
@@ -146,6 +147,9 @@ fi
 
 if [ "$watermark" == "gaussmark" ]; then
     run_train "gaussmark_${model_suffix}" "$model_path" "" "gaussmark"
+
+elif [ "$watermark" == "christ" ]; then
+    run_train "christ_${model_suffix}" "$model_path" "" "christ"
 
 elif [ "$watermark" == "kgw_distilled" ]; then
     if [ "$model" != "llama" ]; then
