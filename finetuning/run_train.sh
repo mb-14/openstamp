@@ -70,7 +70,7 @@ done
 
 # --- 2. Validation ---
 case "$watermark" in
-    "openstamp"|"gaussmark"|"christ"|"kgw_distilled") echo "Watermark: $watermark" ;;
+    "openstamp"|"gaussmark"|"unremovable"|"christ"|"kgw_distilled") echo "Watermark: $watermark" ;;
     *) echo "Error: Invalid watermark type."; exit 1 ;;
 esac
 
@@ -148,8 +148,8 @@ fi
 if [ "$watermark" == "gaussmark" ]; then
     run_train "gaussmark_${model_suffix}" "$model_path" "" "gaussmark"
 
-elif [ "$watermark" == "christ" ]; then
-    run_train "christ_${model_suffix}" "$model_path" "" "christ"
+elif [ "$watermark" == "unremovable" ] || [ "$watermark" == "christ" ]; then
+    run_train "unremovable_${model_suffix}" "$model_path" "" "unremovable"
 
 elif [ "$watermark" == "kgw_distilled" ]; then
     if [ "$model" != "llama" ]; then

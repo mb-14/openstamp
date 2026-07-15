@@ -57,7 +57,7 @@ All available configs are in `experiment_configs/`:
 - [KGW+LLR](experiment_configs/kgw_llr.yaml)
 - [GaussMark](experiment_configs/gaussmark.yaml)
 - [KGW Distilled](experiment_configs/distilled.yaml)
-- [Christ et al.](experiment_configs/christ.yaml) ([arXiv:2410.18861](https://arxiv.org/abs/2410.18861))
+- [Unremovable](experiment_configs/unremovable.yaml) ([Christ et al., arXiv:2410.18861](https://arxiv.org/abs/2410.18861))
 
 ## Watermarked models
 

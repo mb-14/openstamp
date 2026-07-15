@@ -63,10 +63,12 @@ def _build_output_file(
         output_file = (
             f"{output_dir}/output_seed={watermark_seed}_sigma={sigma}_watermark={method}_dataset={dataset}"
         )
-    elif method == "christ":
+    elif method in {"unremovable", "christ"}:
         epsilon = param["epsilon"]
+        # Canonical method id for new runs; keep "christ" alias for legacy configs.
+        method_id = "unremovable" if method == "unremovable" else method
         output_file = (
-            f"{output_dir}/output_seed={watermark_seed}_epsilon={epsilon}_watermark={method}_dataset={dataset}"
+            f"{output_dir}/output_seed={watermark_seed}_epsilon={epsilon}_watermark={method_id}_dataset={dataset}"
         )
     elif method in {"openstamp", "openstamp_binom", "openstamp_discrete"}:
         selector_matrix_dir = param["selector_matrix_dir"]

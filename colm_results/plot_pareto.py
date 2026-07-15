@@ -28,20 +28,22 @@ from _plot_style import (
 )
 
 # Paper legend / draw order.
-LABEL_ORDER = ["OpenStamp", "KGW Distilled", "Gaussmark", "KGW", "KGW + LLR"]
+LABEL_ORDER = ["OpenStamp", "KGW Distilled", "Gaussmark", "Unremovable", "KGW", "KGW + LLR"]
 MARKER_MAP = {
     "OpenStamp": "*",
     "KGW Distilled": "v",
     "Gaussmark": "D",
+    "Unremovable": "X",
     "KGW": "s",
     "KGW + LLR": "o",
 }
-OPEN_WEIGHT = {"OpenStamp", "KGW Distilled", "Gaussmark"}
+OPEN_WEIGHT = {"OpenStamp", "KGW Distilled", "Gaussmark", "Unremovable"}
 
 METHOD_DISPLAY = {
     "OpenStamp": "OpenStamp",
     "KGW Distilled": "KGW Distilled",
     "GaussMark": "Gaussmark",
+    "Unremovable": "Unremovable",
     "KGW": "KGW",
     "KGW + LLR": "KGW + LLR",
 }

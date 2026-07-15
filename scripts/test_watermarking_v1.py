@@ -141,7 +141,7 @@ def build_watermark(output_data: dict, model, tokenizer):
             target_param_name=config["target_param_name"],
         )
         batch_size = 8
-    elif watermark_type == "christ":
+    elif watermark_type in {"unremovable", "christ"}:
         watermark = ChristMark(
             epsilon=config["epsilon"],
             seed=config["watermark_seed"],
@@ -312,7 +312,7 @@ def main() -> None:
         tokenizer.pad_token = tokenizer.eos_token
 
     watermark_type = output_data["watermark"]
-    should_load_model = watermark_type not in ["distilled", "kgw", "unigram", "christ"]
+    should_load_model = watermark_type not in ["distilled", "kgw", "unigram", "christ", "unremovable"]
     if should_load_model:
         model, tokenizer = load_model(model_name)
     else:

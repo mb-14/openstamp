@@ -123,7 +123,7 @@ def main():
             model=model,
         )
         model = gaussmark.model
-    elif watermark_type == "christ":
+    elif watermark_type in {"unremovable", "christ"}:
         christ = ChristMark(
             epsilon=CHRIST_EPSILON,
             seed=custom_args.watermark_seed,

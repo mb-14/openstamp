@@ -1,4 +1,4 @@
-"""Christ et al. (arXiv:2410.18861) open-source watermark baseline.
+"""Unremovable watermark baseline (Christ et al., arXiv:2410.18861).
 
 Embeds a secret Gaussian key Δ ~ N(0, ε²I) into the final-layer bias
 (lm_head.bias). Detection scores text by the mean of Δ over distinct token IDs.
