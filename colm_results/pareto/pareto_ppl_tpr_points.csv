@@ -21,6 +21,7 @@ GaussMark,Llama-2-7b,realnewslike,sigma,0.03,,,13.7615,0.686667,0.519333,0.97121
 GaussMark,Llama-2-7b,realnewslike,sigma,0.035,,,14.461,0.792,0.628667,0.983824,watermark=gaussmark_sigma=0.035_param=model.layers.27.mlp.up_proj.weight
 GaussMark,Llama-2-7b,realnewslike,sigma,0.04,,,15.7723,0.871333,0.750667,0.992075,watermark=gaussmark_sigma=0.04_param=model.layers.27.mlp.up_proj.weight
 GaussMark,Llama-2-7b,realnewslike,sigma,0.045,,,17.4666,0.934,0.842,0.996516,watermark=gaussmark_sigma=0.045_param=model.layers.27.mlp.up_proj.weight
+Unremovable,Llama-2-7b,realnewslike,epsilon,0.3,,,12.483979,0.436667,0.186667,0.9174,watermark=unremovable_epsilon=0.3
 Unremovable,Llama-2-7b,realnewslike,epsilon,0.4,,,12.840125,0.682667,0.393333,0.964869,watermark=unremovable_epsilon=0.4
 Unremovable,Llama-2-7b,realnewslike,epsilon,0.5,,,13.217885,0.868667,0.625333,0.989371,watermark=unremovable_epsilon=0.5
 Unremovable,Llama-2-7b,realnewslike,epsilon,0.6,,,13.800099,0.944,0.814,0.994877,watermark=unremovable_epsilon=0.6
