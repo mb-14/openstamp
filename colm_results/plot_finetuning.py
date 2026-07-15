@@ -31,7 +31,7 @@ PLOT_ORDER = ("GaussMark", "KGW Distilled", "OpenStamp")
 
 MODELS = {
     "llama": {
-        "plot_name": "finetuning",
+        "plot_name": "finetuning_llama",
         "csv_suffix": "llama",
     },
     "mistral": {

@@ -40,7 +40,7 @@ METHOD_LABEL = {
 METHOD_ORDER = ("OpenStamp", "Gaussmark", "KGW Distilled")
 
 FAMILIES = (
-    ("Llama-2-7B", "relative_ds_accuracy"),
+    ("Llama-2-7B", "relative_ds_accuracy_llama"),
     ("Mistral-7B", "relative_ds_accuracy_mistral"),
 )
 

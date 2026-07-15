@@ -169,8 +169,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--stem",
-        default="ppl_tpr_plot",
-        help="Output filename stem (default: ppl_tpr_plot)",
+        default="ppl_tpr_plot_llama",
+        help="Output filename stem (default: ppl_tpr_plot_llama)",
     )
     add_tex_flag(parser)
     args = parser.parse_args()
