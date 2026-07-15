@@ -1,0 +1,20 @@
+# KGW Distilled Mistral-7B (legacy, hash key 15485863) on realnewslike.
+#
+# Run (no paraphrase):
+#   python scripts/run_config.py \
+#     --config experiment_configs/distilled_mistral_realnewslike.yaml \
+#     --base_output_dir output/main \
+#     --num_samples 500 \
+#     --eval_ppl
+
+method: distilled
+
+common:
+  gpus: [0]
+  datasets: [realnewslike]
+
+configs:
+  - model_name: mbakshi1094/mistral-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2-hk15485863-legacy
+    gamma: 0.25
+    delta: 2.0
+    watermark_seed: 15485863
