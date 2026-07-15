@@ -53,11 +53,11 @@ python scripts/aggregate_metrics.py \
 All available configs are in `experiment_configs/`:
 
 - [OpenStamp](experiment_configs/openstamp.yaml)
-- [KGW](experiment_configs/kgw.yaml)
-- [KGW+LLR](experiment_configs/kgw_llr.yaml)
-- [GaussMark](experiment_configs/gaussmark.yaml)
-- [KGW Distilled](experiment_configs/distilled.yaml)
-- [Unremovable](experiment_configs/unremovable.yaml) ([Christ et al., arXiv:2410.18861](https://arxiv.org/abs/2410.18861))
+- [KGW](experiment_configs/kgw.yaml) ([Kirchenbauer et al.](https://arxiv.org/abs/2301.10226))
+- [KGW+LLR](experiment_configs/kgw_llr.yaml) ([Kirchenbauer et al.](https://arxiv.org/abs/2301.10226); LLR detector from OpenStamp)
+- [GaussMark](experiment_configs/gaussmark.yaml) ([Block et al.](https://arxiv.org/abs/2501.13941))
+- [KGW Distilled](experiment_configs/distilled.yaml) ([Gu et al.](https://arxiv.org/abs/2312.04469))
+- [Unremovable](experiment_configs/unremovable.yaml) ([Christ et al.](https://arxiv.org/abs/2410.18861))
 
 ## Watermarked models
 
