@@ -1,0 +1,13 @@
+Method,Model,Dataset,L,gamma,delta,NSeeds,TPR@1%FPR,PPL_at_TPR>=0.90,note
+OpenStamp,Llama-2-7b,realnewslike,8,0.25,0.9,1,0.9293±0.0000,12.70±0.00,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+OpenStamp,Llama-2-7b,realnewslike,16,0.25,0.9,3,0.9773±0.0078,12.91±0.13,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+OpenStamp,Llama-2-7b,realnewslike,32,0.25,0.7,3,0.9260±0.0088,12.80±0.20,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+OpenStamp,Llama-2-7b,realnewslike,64,0.25,0.7,3,0.9851±0.0039,13.07±0.14,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+OpenStamp,Llama-2-7b,realnewslike,96,0.25,0.7,3,0.9854±0.0053,13.35±0.19,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+OpenStamp,Llama-2-7b,realnewslike,127,0.25,0.7,3,0.9869±0.0026,13.08±0.30,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+OpenStamp,Llama-2-7b,realnewslike,192,0.25,0.6,3,0.9774±0.0100,13.51±0.44,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+OpenStamp,Llama-2-7b,realnewslike,254,0.25,0.6,3,0.9900±0.0077,13.03±0.49,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+OpenStamp,Llama-2-7b,realnewslike,384,0.25,0.6,3,0.9931±0.0018,13.73±0.13,"best (gamma,delta) with TPR@1%>=0.90, lowest PPL"
+GaussMark,Llama-2-7b,realnewslike,,,,,,17.46,reference line in detection_vs_L.pdf
+KGW Distilled,Llama-2-7b,realnewslike,,,,,,16.59,reference line in detection_vs_L.pdf
+Unremovable,Llama-2-7b,realnewslike,,,,,,13.80,reference line in detection_vs_L.pdf
