@@ -1,4 +1,4 @@
-method: distilled
+method: unremovable
 
 common:
   gpus: [0]
@@ -7,8 +7,6 @@ common:
 
 configs:
   - model_name: meta-llama/Llama-2-7b-hf
-    gamma: 0.25
-    delta: 2.0
+    epsilon: 0.8
   - model_name: mistralai/Mistral-7B-v0.3
-    gamma: 0.25
-    delta: 2.0
+    epsilon: 0.8

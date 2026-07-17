@@ -26,6 +26,7 @@ from huggingface_hub import HfApi
 
 from src.openstamp import OpenStamp, Mode
 from src.gaussmark import GaussMark
+from src.christmark import ChristMark
 
 
 def get_param(model, name: str):
@@ -67,14 +68,20 @@ def parse_args():
         "--watermark-type",
         type=str,
         default="openstamp",
-        choices=["gaussmark", "openstamp"],
-        help="Type of watermark: gaussmark or openstamp.",
+        choices=["gaussmark", "openstamp", "unremovable"],
+        help="Type of watermark: gaussmark, openstamp, or unremovable.",
     )
     parser.add_argument(
         "--selector-matrix-dir",
         type=str,
         default=None,
         help="Directory containing selector_matrix.pth and config (selector_metrics.json or config.json). Required for openstamp.",
+    )
+    parser.add_argument(
+        "--epsilon",
+        type=float,
+        default=0.8,
+        help="Gaussian key stddev for unremovable. Ignored otherwise.",
     )
     parser.add_argument(
         "--seed",
@@ -122,6 +129,7 @@ def main():
     watermark_type = args.watermark_type
     seed = args.seed
     watermark_config = None
+    std = None
 
     print(f"Model name: {model_name}")
     print(f"Watermark type: {watermark_type}")
@@ -217,15 +225,49 @@ def main():
         print(f"L2 norm of watermark diff: {l2}")
         std = diff.std(unbiased=False).item()
 
-    print(f"Standard deviation of watermark diff: {std}")
+    elif watermark_type == "unremovable":
+        if model_name not in (LLAMA, MISTRAL):
+            raise ValueError("unremovable is only supported for Llama-2-7B and Mistral-7B-v0.3")
+        epsilon = float(args.epsilon)
+        print(f"Epsilon: {epsilon}")
+        print(
+            "WARNING: HF Llama/Mistral drop lm_head.bias on from_pretrained. "
+            "For downstream eval use scripts/eval_unremovable_downstream.py "
+            "(applies ChristMark in-memory). Saved checkpoints also write "
+            "unremovable_delta.pt for re-application."
+        )
+
+        watermark = ChristMark(
+            epsilon=epsilon,
+            seed=seed,
+            tokenizer=tokenizer,
+            model=model,
+        )
+        std = float(watermark.delta.std(unbiased=False).item())
+        watermark_config = {
+            "watermark_type": "unremovable",
+            "epsilon": epsilon,
+            "seed": seed,
+            "vocab_size": watermark.vocab_size,
+            "delta_path": "unremovable_delta.pt",
+        }
+
+    else:
+        raise ValueError(f"Unsupported watermark type: {watermark_type}")
+
+    if std is not None:
+        print(f"Standard deviation of watermark diff: {std}")
 
     watermarked_model = watermark.model
 
     model_name_slug = model_slug(model_name)
     if watermark_type == "gaussmark":
         watermarked_repo_name = f"{model_name_slug}-gaussmark-s{watermark.sigma}"
-    else:
+    elif watermark_type == "openstamp":
         watermarked_repo_name = f"{model_name_slug}-openstamp-L{L}-delta{delta}-gamma{gamma}"
+    else:
+        # Include seed so multi-seed downstream evals don't overwrite each other.
+        watermarked_repo_name = f"{model_name_slug}-unremovable-eps{epsilon}-seed{seed}"
 
     print(f"Watermarked model name: {watermarked_repo_name}")
 
@@ -233,6 +275,11 @@ def main():
     os.makedirs(save_path, exist_ok=True)
     watermarked_model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
+
+    if watermark_type == "unremovable":
+        delta_path = os.path.join(save_path, "unremovable_delta.pt")
+        torch.save(watermark.delta.cpu(), delta_path)
+        print(f"Unremovable delta saved to {delta_path}")
 
     if watermark_config is not None:
         config_save_path = os.path.join(save_path, "watermark_config.json")

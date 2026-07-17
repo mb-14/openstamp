@@ -1,5 +1,43 @@
+from typing import Dict, Tuple
+
 from src.kgw.watermark_processor import WatermarkDetector
 import torch
+
+# Base model + watermark seed (hash key) -> distilled HF checkpoint.
+# Seed 15485863 for Llama uses the original cygu release; other seeds are
+# mbakshi1094 re-trains with the hash key embedded in the repo name.
+DISTILLED_MODEL_BY_SEED: Dict[Tuple[str, int], str] = {
+    ("meta-llama/Llama-2-7b-hf", 12997009): (
+        "mbakshi1094/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2-hk12997009-legacy"
+    ),
+    ("meta-llama/Llama-2-7b-hf", 22983996): (
+        "mbakshi1094/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2-hk22983996-legacy"
+    ),
+    ("meta-llama/Llama-2-7b-hf", 15485863): (
+        "cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"
+    ),
+    ("mistralai/Mistral-7B-v0.3", 12997009): (
+        "mbakshi1094/mistral-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2-hk12997009-legacy"
+    ),
+    ("mistralai/Mistral-7B-v0.3", 22983996): (
+        "mbakshi1094/mistral-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2-hk22983996-legacy"
+    ),
+    ("mistralai/Mistral-7B-v0.3", 15485863): (
+        "mbakshi1094/mistral-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2-hk15485863-legacy"
+    ),
+}
+
+
+def resolve_distilled_model(base_model: str, seed: int) -> str:
+    """Map a base LM + watermark seed to the matching KGW-distilled HF model ID."""
+    key = (base_model, int(seed))
+    try:
+        return DISTILLED_MODEL_BY_SEED[key]
+    except KeyError as exc:
+        raise KeyError(
+            f"No distilled model for base_model={base_model!r} seed={seed}. "
+            f"Known keys: {sorted(DISTILLED_MODEL_BY_SEED)}"
+        ) from exc
 
 
 class KGWDistilled:

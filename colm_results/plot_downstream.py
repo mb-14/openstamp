@@ -11,7 +11,6 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -28,16 +27,23 @@ BENCHMARK_LABELS = {
     "boolq": "BoolQ",
     "hellaswag": "HellaSwag",
 }
+# Color per benchmark; same marker shape for all.
+BENCHMARK_STYLE = {
+    "arc_challenge": {"marker": "o", "color": "#1f77b4"},
+    "boolq": {"marker": "o", "color": "#ff7f0e"},
+    "hellaswag": {"marker": "o", "color": "#2ca02c"},
+}
 
 # CSV model suffix -> figure label.
 METHOD_LABEL = {
     "OpenStamp": "OpenStamp",
     "GaussMark": "Gaussmark",
+    "Unremovable": "Unremovable",
     "Distilled": "KGW Distilled",
 }
 
-# Paper x-axis order (left → right).
-METHOD_ORDER = ("OpenStamp", "Gaussmark", "KGW Distilled")
+# Paper y-axis order (top → bottom).
+METHOD_ORDER = ("Gaussmark", "Unremovable", "KGW Distilled", "OpenStamp")
 
 FAMILIES = (
     ("Llama-2-7B", "relative_ds_accuracy_llama"),
@@ -94,58 +100,94 @@ def plot_family(
     out_dir: Path,
     use_tex: bool,
 ) -> list[Path]:
+    """Horizontal grouped bars: methods on y, relative % on x."""
     use_tex = apply_paper_style(use_tex=use_tex)
 
     method_labels = [m for m in METHOD_ORDER if m in method_scores]
-    x = np.arange(len(method_labels))
-    width = 0.25
+    if method_labels:
+        benches: list[str] = []
+        for b in BENCHMARKS:
+            if any(b in method_scores[m] for m in method_labels):
+                benches.append(b)
+    else:
+        benches = []
+    if not method_labels or not benches:
+        raise ValueError(f"No scores to plot for {stem}")
 
-    cmap = plt.colormaps["tab10"].resampled(len(BENCHMARKS))
-    colors = [mcolors.to_rgba(cmap(i), alpha=0.7) for i in range(len(BENCHMARKS))]
+    # Top → bottom matching METHOD_ORDER.
+    y = np.arange(len(method_labels))[::-1]
 
-    fig, ax = plt.subplots()
-    for i, benchmark in enumerate(BENCHMARKS):
-        for j, label in enumerate(method_labels):
-            value = method_scores[label].get(benchmark, 0.0)
-            bar_label = BENCHMARK_LABELS[benchmark] if j == 0 else None
-            ax.bar(
-                x[j] + i * width,
-                value,
-                width,
-                color=colors[i],
-                edgecolor="black",
-                linewidth=0.4,
-                label=bar_label,
-            )
-
-    ylabel = r"Relative Accuracy (\%)" if use_tex else "Relative Accuracy (%)"
-    ax.set_ylabel(ylabel, fontsize=9)
-    ax.set_ylim(80, 105)
-    ax.set_yticks([80, 85, 90, 95, 100])
-    ax.tick_params(axis="y", labelsize=8)
-    ax.axhline(100, color="black", linestyle="--", linewidth=0.7)
-
-    ax.set_xticks(x + width * (len(BENCHMARKS) - 1) / 2)
-    tick_labels = [
-        r"\textbf{OpenStamp}" if (use_tex and label == "OpenStamp") else label
-        for label in method_labels
+    all_values = [
+        method_scores[m][b]
+        for m in method_labels
+        for b in benches
+        if b in method_scores[m]
     ]
-    ax.set_xticklabels(tick_labels, fontsize=9)
+    x_min = min(80.0, max(0.0, float(np.floor(min(all_values) / 5.0) * 5.0 - 5.0)))
+
+    n_b = len(benches)
+    bar_h = min(0.7 / n_b, 0.28)
+    offsets = (np.arange(n_b) - (n_b - 1) / 2.0) * bar_h
+
+    fig, ax = plt.subplots(figsize=(3.4, 1.2 + 0.55 * len(method_labels)))
+    ax.axvline(100, color="black", linestyle="--", linewidth=0.8, zorder=1)
+
+    for offset, benchmark in zip(offsets, benches):
+        style = BENCHMARK_STYLE[benchmark]
+        widths = []
+        ys = []
+        for i, label in enumerate(method_labels):
+            if benchmark not in method_scores[label]:
+                continue
+            widths.append(method_scores[label][benchmark])
+            ys.append(y[i] + offset)
+        ax.barh(
+            ys,
+            widths,
+            height=bar_h * 0.9,
+            color=style["color"],
+            edgecolor="black",
+            linewidth=0.35,
+            zorder=3,
+            label=BENCHMARK_LABELS[benchmark],
+        )
+
+    ax.set_yticks(y)
+    tick_labels = []
+    for label in method_labels:
+        if label == "OpenStamp":
+            tick_labels.append(r"\textbf{OpenStamp}" if use_tex else "OpenStamp")
+        else:
+            tick_labels.append(label)
+    ax.set_yticklabels(tick_labels, fontsize=8)
     if not use_tex:
-        for tick, label in zip(ax.get_xticklabels(), method_labels):
+        for tick, label in zip(ax.get_yticklabels(), method_labels):
             if label == "OpenStamp":
                 tick.set_fontweight(600)
 
-    ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, 1.05),
-        ncol=len(BENCHMARKS),
-        frameon=False,
-        fontsize=9,
-        handlelength=1.5,
-    )
+    ax.set_xlim(x_min, 101)
+    ax.set_ylim(min(y) - 0.55, max(y) + 0.55)
+    # Ticks up to 100 only; 101 is just visual headroom past the baseline.
+    xticks = [t for t in ax.get_xticks() if x_min <= t <= 100]
+    if 100 not in xticks:
+        xticks.append(100.0)
+    ax.set_xticks(sorted(xticks))
+    xlabel = r"Relative Accuracy (\%)" if use_tex else "Relative Accuracy (%)"
+    ax.set_xlabel(xlabel, fontsize=9)
+    ax.tick_params(axis="x", labelsize=8)
     ax.spines[["top", "right"]].set_visible(False)
-    ax.grid(axis="y", linestyle=":", linewidth=0.4, alpha=0.5)
+    ax.grid(axis="x", linestyle=":", linewidth=0.4, alpha=0.5, zorder=0)
+
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=len(benches),
+        frameon=False,
+        fontsize=8,
+        handletextpad=0.3,
+        columnspacing=1.0,
+        handlelength=1.2,
+    )
 
     fig.tight_layout()
     paths = save_figure(fig, out_dir, stem)
@@ -181,7 +223,9 @@ def main() -> None:
             if label not in method_scores:
                 continue
             benches = method_scores[label]
-            parts = ", ".join(f"{BENCHMARK_LABELS[b]}={v:.1f}%" for b, v in benches.items())
+            parts = ", ".join(
+                f"{BENCHMARK_LABELS[b]}={v:.1f}%" for b, v in benches.items()
+            )
             print(f"  {label}: {parts}")
         paths = plot_family(
             method_scores,

@@ -9,9 +9,15 @@ import os
 import subprocess
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import yaml
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.kgw_distilled import resolve_distilled_model  # noqa: E402
 
 
 def _run_command(cmd: List[str], env: Dict[str, str]) -> Tuple[int, str, str]:
@@ -130,30 +136,20 @@ def _build_jobs(cfg: Dict[str, Any]) -> List[Tuple[int, Dict[str, Any]]]:
     datasets = common["datasets"]
     watermark_seeds = common.get("watermark_seeds")
 
+    if watermark_seeds is None:
+        raise ValueError(f"common.watermark_seeds is required for method={method!r}.")
+
     jobs: List[Tuple[int, Dict[str, Any]]] = []
-
-    if method == "distilled":
-        product_iter = itertools.product(datasets, configs)
-    else:
-        product_iter = itertools.product(datasets, configs, watermark_seeds)
-
-    for idx, combo in enumerate(product_iter):
+    for idx, (dataset, config, seed) in enumerate(
+        itertools.product(datasets, configs, watermark_seeds)
+    ):
+        job = {
+            "dataset": dataset,
+            **dict(config),
+            "watermark_seed": int(seed),
+        }
         if method == "distilled":
-            dataset, config = combo
-            job = {
-                "dataset": dataset,
-                **dict(config),
-            }
-            seed = job.get("watermark_seed")
-        else:
-            dataset, config, seed = combo
-            job = {
-                "dataset": dataset,
-                **dict(config),
-            }
-
-        job["watermark_seed"] = job.get("watermark_seed", seed)
-
+            job["model_name"] = resolve_distilled_model(job["model_name"], job["watermark_seed"])
         jobs.append((idx, job))
 
     return jobs

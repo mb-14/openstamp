@@ -21,6 +21,7 @@ METHOD_COLORS = {
     "OpenStamp": "#2ca02c",
     "GaussMark": "#1f77b4",
     "Gaussmark": "#1f77b4",
+    "Unremovable": "#9467bd",
     "KGW Distilled": "#ff7f0e",
 }
 
