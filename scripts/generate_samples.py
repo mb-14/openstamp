@@ -73,6 +73,13 @@ def parse_args():
                         help="Directory containing the LoRA checkpoints")
     parser.add_argument('--step', type=int, default=0,
                         help="Step of the LoRA checkpoint to load. If 0, no LoRA is applied.")
+    parser.add_argument(
+        "--quantization",
+        type=str,
+        default="none",
+        choices=["none", "nf4", "int8"],
+        help="bitsandbytes load-time quantization for generation (none/nf4/int8)",
+    )
 
     args = parser.parse_args()
 
@@ -103,7 +110,10 @@ if args.watermark == "rl":
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 else:
-    model, tokenizer = load_model(args.model_name)
+    model, tokenizer = load_model(
+        args.model_name,
+        quantization=None if args.quantization == "none" else args.quantization,
+    )
 
 
 device = model.device
@@ -441,6 +451,7 @@ elif args.watermark in {"unremovable", "christ"}:
         "epsilon": args.epsilon,
         "watermark_seed": args.watermark_seed,
         "vocab_size": christ.vocab_size,
+        "quantization": args.quantization,
     }
 elif args.watermark == "noise":
     config = {
@@ -481,6 +492,7 @@ sample_data = {
     "temperature": temperature,
     "watermark": args.watermark,
     "config": config,
+    "quantization": args.quantization,
     "top_k": args.top_k,
     "top_p": args.top_p,
     "multinomial": args.multinomial,

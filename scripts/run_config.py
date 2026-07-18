@@ -73,8 +73,13 @@ def _build_output_file(
         epsilon = param["epsilon"]
         # Canonical method id for new runs; keep "christ" alias for legacy configs.
         method_id = "unremovable" if method == "unremovable" else method
+        quant = param.get("quantization")
+        quant_suffix = ""
+        if quant is not None and str(quant).lower() not in {"", "none"}:
+            quant_suffix = f"_quant={str(quant).lower()}"
         output_file = (
-            f"{output_dir}/output_seed={watermark_seed}_epsilon={epsilon}_watermark={method_id}_dataset={dataset}"
+            f"{output_dir}/output_seed={watermark_seed}_epsilon={epsilon}"
+            f"_watermark={method_id}{quant_suffix}_dataset={dataset}"
         )
     elif method in {"openstamp", "openstamp_binom", "openstamp_discrete"}:
         selector_matrix_dir = param["selector_matrix_dir"]

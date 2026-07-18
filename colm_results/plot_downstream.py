@@ -19,7 +19,7 @@ _DIR = Path(__file__).resolve().parent
 if str(_DIR) not in sys.path:
     sys.path.insert(0, str(_DIR))
 
-from _plot_style import add_tex_flag, apply_paper_style, save_figure
+from _plot_style import METHOD_COLORS, add_tex_flag, apply_paper_style, save_figure
 
 BENCHMARKS = ("arc_challenge", "boolq", "hellaswag")
 BENCHMARK_LABELS = {
@@ -27,11 +27,11 @@ BENCHMARK_LABELS = {
     "boolq": "BoolQ",
     "hellaswag": "HellaSwag",
 }
-# Color per benchmark; same marker shape for all.
+# Same hues as the finetuning curves (GaussMark / KGW Distilled / OpenStamp).
 BENCHMARK_STYLE = {
-    "arc_challenge": {"marker": "o", "color": "#1f77b4"},
-    "boolq": {"marker": "o", "color": "#ff7f0e"},
-    "hellaswag": {"marker": "o", "color": "#2ca02c"},
+    "arc_challenge": {"color": METHOD_COLORS["GaussMark"]},
+    "boolq": {"color": METHOD_COLORS["KGW Distilled"]},
+    "hellaswag": {"color": METHOD_COLORS["OpenStamp"]},
 }
 
 # CSV model suffix -> figure label.
@@ -126,14 +126,22 @@ def plot_family(
     x_min = min(80.0, max(0.0, float(np.floor(min(all_values) / 5.0) * 5.0 - 5.0)))
 
     n_b = len(benches)
-    bar_h = min(0.7 / n_b, 0.28)
+    # Bars flush within each method group (no gap between benchmarks).
+    bar_h = min(0.78 / n_b, 0.30)
     offsets = (np.arange(n_b) - (n_b - 1) / 2.0) * bar_h
 
-    fig, ax = plt.subplots(figsize=(3.4, 1.2 + 0.55 * len(method_labels)))
-    ax.axvline(100, color="black", linestyle="--", linewidth=0.8, zorder=1)
+    fig, ax = plt.subplots(figsize=(3.5, 1.15 + 0.52 * len(method_labels)))
+
+    # Subtle alternating row bands to group methods.
+    for i, yi in enumerate(y):
+        if i % 2 == 0:
+            ax.axhspan(yi - 0.42, yi + 0.42, color="#f5f5f5", zorder=0, lw=0)
+
+    ax.axvline(100, color="#555555", linestyle="--", linewidth=0.9, zorder=1, alpha=0.85)
 
     for offset, benchmark in zip(offsets, benches):
         style = BENCHMARK_STYLE[benchmark]
+        fill = style["color"]
         widths = []
         ys = []
         for i, label in enumerate(method_labels):
@@ -144,10 +152,10 @@ def plot_family(
         ax.barh(
             ys,
             widths,
-            height=bar_h * 0.9,
-            color=style["color"],
-            edgecolor="black",
-            linewidth=0.35,
+            height=bar_h * 0.92,  # small gap between bars in a group
+            color=fill,
+            edgecolor=fill,
+            linewidth=0.0,
             zorder=3,
             label=BENCHMARK_LABELS[benchmark],
         )
@@ -165,9 +173,9 @@ def plot_family(
             if label == "OpenStamp":
                 tick.set_fontweight(600)
 
-    ax.set_xlim(x_min, 101)
-    ax.set_ylim(min(y) - 0.55, max(y) + 0.55)
-    # Ticks up to 100 only; 101 is just visual headroom past the baseline.
+    ax.set_xlim(x_min, 101.5)
+    ax.set_ylim(min(y) - 0.48, max(y) + 0.48)
+    # Ticks up to 100 only; headroom past the baseline is visual only.
     xticks = [t for t in ax.get_xticks() if x_min <= t <= 100]
     if 100 not in xticks:
         xticks.append(100.0)
@@ -175,18 +183,23 @@ def plot_family(
     xlabel = r"Relative Accuracy (\%)" if use_tex else "Relative Accuracy (%)"
     ax.set_xlabel(xlabel, fontsize=9)
     ax.tick_params(axis="x", labelsize=8)
+    ax.tick_params(axis="y", length=0)
     ax.spines[["top", "right"]].set_visible(False)
-    ax.grid(axis="x", linestyle=":", linewidth=0.4, alpha=0.5, zorder=0)
+    ax.spines["left"].set_color("#888888")
+    ax.spines["bottom"].set_color("#888888")
+    ax.grid(axis="x", linestyle=":", linewidth=0.45, alpha=0.45, zorder=0)
+    ax.set_axisbelow(True)
 
     ax.legend(
         loc="lower center",
-        bbox_to_anchor=(0.5, 1.02),
+        bbox_to_anchor=(0.5, 1.01),
         ncol=len(benches),
         frameon=False,
         fontsize=8,
-        handletextpad=0.3,
-        columnspacing=1.0,
-        handlelength=1.2,
+        handletextpad=0.35,
+        columnspacing=1.15,
+        handlelength=1.15,
+        borderaxespad=0.0,
     )
 
     fig.tight_layout()

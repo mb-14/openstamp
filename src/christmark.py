@@ -11,7 +11,15 @@ import torch.nn as nn
 
 
 class ChristMark:
-    def __init__(self, epsilon, seed, tokenizer, model=None, vocab_size=None):
+    def __init__(
+        self,
+        epsilon,
+        seed,
+        tokenizer,
+        model=None,
+        vocab_size=None,
+        verify_bias: bool = True,
+    ):
         """
         Args:
             epsilon: stddev of Gaussian bias key (ε in the paper).
@@ -19,10 +27,12 @@ class ChristMark:
             tokenizer: HuggingFace tokenizer.
             model: causal LM to watermark (required for generation; None for detect-only).
             vocab_size: override vocab size for the key; defaults to model config or tokenizer.
+            verify_bias: if True and model is set, assert lm_head.bias affects logits.
         """
         self.epsilon = float(epsilon)
         self.seed = int(seed)
         self.tokenizer = tokenizer
+        self.verify_bias = bool(verify_bias)
 
         if vocab_size is None:
             if model is not None and getattr(model.config, "vocab_size", None):
@@ -41,7 +51,7 @@ class ChristMark:
         rng.manual_seed(self.seed)
         return torch.randn(vocab_size, generator=rng) * self.epsilon
 
-    def watermark_model(self, model):
+    def watermark_model(self, model, verify_bias: bool | None = None):
         """Add Δ to lm_head.bias, creating a zero bias if the layer has none."""
         lm_head = model.get_output_embeddings()
         if lm_head is None:
@@ -67,6 +77,39 @@ class ChristMark:
             lm_head.bias.data.add_(key)
 
         self.model = model
+        if self.verify_bias if verify_bias is None else verify_bias:
+            self.assert_bias_active()
+
+    def assert_bias_active(self) -> None:
+        """Fail fast if lm_head.bias is missing or does not affect logits."""
+        if self.model is None:
+            raise RuntimeError("No model attached; cannot verify bias")
+        model = self.model
+        lm_head = model.get_output_embeddings()
+        if lm_head is None or lm_head.bias is None:
+            raise RuntimeError("ChristMark bias was not attached to lm_head")
+
+        device = next(model.parameters()).device
+        text = "The capital of France is"
+        inputs = self.tokenizer(text, return_tensors="pt").to(device)
+
+        model.eval()
+        with torch.no_grad():
+            logits_with = model(**inputs).logits[0, -1].float().cpu()
+
+        # Temporarily zero the watermark contribution and compare.
+        with torch.no_grad():
+            backup = lm_head.bias.data.clone()
+            lm_head.bias.data.zero_()
+            logits_zero = model(**inputs).logits[0, -1].float().cpu()
+            lm_head.bias.data.copy_(backup)
+
+        max_diff = (logits_with - logits_zero).abs().max().item()
+        if max_diff < 1e-3:
+            raise RuntimeError(
+                f"Bias does not affect logits (max_diff={max_diff}); refusing to continue"
+            )
+        print(f"Bias check OK (max logit delta vs zeroed bias: {max_diff:.4f})")
 
     def score_text_batch(self, batch_text):
         """Return mean Δ over distinct token IDs for each text (higher = more watermarked)."""

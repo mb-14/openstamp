@@ -1,0 +1,9 @@
+Method,Model,Unquantized,NF4,INT8
+OpenStamp,Llama-2-7B,0.998,1.000,1.000
+OpenStamp,Mistral-7B-v0.3,1.000,1.000,1.000
+Distilled-KGW,Llama-2-7B,0.986,0.976,0.988
+Distilled-KGW,Mistral-7B-v0.3,0.990,1.000,0.994
+GaussMark,Llama-2-7B,0.846,0.854,0.842
+GaussMark,Mistral-7B-v0.3,0.746,0.736,0.704
+Unremovable,Llama-2-7B,0.994,0.994,0.993
+Unremovable,Mistral-7B-v0.3,0.996,0.990,0.995

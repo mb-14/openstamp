@@ -1,0 +1,6 @@
+model,dataset,method,config,ppl,mean_seq_rep_3,gen,gen,gen,gen,dipper20,dipper60,llm_paraphrase
+,,,,mean,mean,auroc,tpr_1_fpr,tpr_0.01_fpr,tpr_0.1_fpr,auroc,auroc,auroc
+Llama-2-7b-hf,realnewslike,unremovable,"epsilon=0.8,quantization=int8",,,0.999 +- 0.001,0.993 +- 0.005,0.963 +- 0.026,0.963 +- 0.026,,,
+Llama-2-7b-hf,realnewslike,unremovable,"epsilon=0.8,quantization=nf4",,,0.999 +- 0.000,0.994 +- 0.002,0.980 +- 0.012,0.980 +- 0.012,,,
+Mistral-7B-v0.3,realnewslike,unremovable,"epsilon=0.8,quantization=int8",,,1.000 +- 0.000,0.995 +- 0.005,0.977 +- 0.012,0.977 +- 0.012,,,
+Mistral-7B-v0.3,realnewslike,unremovable,"epsilon=0.8,quantization=nf4",,,0.999 +- 0.000,0.990 +- 0.006,0.975 +- 0.003,0.975 +- 0.003,,,

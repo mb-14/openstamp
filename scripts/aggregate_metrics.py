@@ -82,12 +82,23 @@ def _format_config(config: Dict[str, Any]) -> Optional[str]:
         ("sigma", config.get("sigma")),
         ("target_param_name", config.get("target_param_name")),
     ]
+    christ_keys = [
+        ("epsilon", config.get("epsilon")),
+        ("quantization", config.get("quantization")),
+    ]
 
     if any(value is not None for _, value in mb_keys):
         items = [f"{key}={value}" for key, value in mb_keys if value is not None]
         return ",".join(items) if items else None
     if any(value is not None for _, value in gauss_keys):
         items = [f"{key}={value}" for key, value in gauss_keys if value is not None]
+        return ",".join(items) if items else None
+    if any(value is not None for _, value in christ_keys):
+        items = [
+            f"{key}={value}"
+            for key, value in christ_keys
+            if value is not None and str(value).lower() != "none"
+        ]
         return ",".join(items) if items else None
     return None
 
