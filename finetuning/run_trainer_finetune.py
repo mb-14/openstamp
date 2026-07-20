@@ -3,7 +3,7 @@ torch.set_float32_matmul_precision("high")
 
 from itertools import chain
 from rich import print as pprint
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from trl import ModelConfig, SFTConfig, TrlParser, SFTTrainer
 from peft import LoraConfig, get_peft_model
@@ -18,6 +18,11 @@ import os
 OPENSTAMP_DELTA = 1.0
 OPENSTAMP_GAMMA = 0.25
 OPENSTAMP_UNEMBEDDING_PARAM_NAME = "lm_head"
+
+DATASET_NAME = "Skylion007/openwebtext"
+DATASET_N_DOCS = 500_000
+DATASET_SHUFFLE_SEED = 739
+DATASET_CACHE_ROOT = os.path.join("finetuning", "cache")
 
 GAUSSMARK_CONFIG = {
     "meta-llama/Llama-2-7b-hf": {
@@ -61,23 +66,76 @@ def group_texts(examples, sequence_length):
     return result
 
 
-def tokenize_dataset(dataset, tokenizer, sequence_length: int = 200):
+def tokenize_dataset(dataset, tokenizer, sequence_length: int = 200, num_proc: int = 32):
     tokenized_dataset = dataset.map(
-        lambda examples: tokenize_function(examples, tokenizer),
+        tokenize_function,
+        fn_kwargs={"tokenizer": tokenizer},
         batched=True,
         remove_columns="text",
+        num_proc=num_proc,
+        desc="Tokenizing",
     )
     lm_dataset = tokenized_dataset.map(
-        lambda examples: group_texts(examples, sequence_length),
+        group_texts,
+        fn_kwargs={"sequence_length": sequence_length},
         batched=True,
+        num_proc=num_proc,
+        desc="Grouping texts",
+    )
+    return lm_dataset
+
+
+def lm_dataset_cache_dir(model_name_or_path: str, sequence_length: int) -> str:
+    model_slug = model_name_or_path.replace("/", "__")
+    return os.path.join(
+        DATASET_CACHE_ROOT,
+        f"openwebtext_{model_slug}_n{DATASET_N_DOCS}_seed{DATASET_SHUFFLE_SEED}_seq{sequence_length}",
     )
 
-    return lm_dataset
+
+def load_or_build_lm_dataset(tokenizer, model_name_or_path: str, sequence_length: int, num_proc: int = 8):
+    cache_dir = lm_dataset_cache_dir(model_name_or_path, sequence_length)
+    if os.path.isdir(cache_dir):
+        print(f"Loading cached LM dataset from {cache_dir}")
+        return load_from_disk(cache_dir)
+
+    print(f"Building LM dataset cache at {cache_dir}")
+    dataset = load_dataset(
+        DATASET_NAME,
+        split=f"train[0:{DATASET_N_DOCS}]",
+        num_proc=num_proc,
+        trust_remote_code=True,
+        streaming=False,
+    )
+    dataset = dataset.shuffle(seed=DATASET_SHUFFLE_SEED).select(range(DATASET_N_DOCS))
+    column_names = dataset.column_names
+    dataset = dataset.remove_columns([col for col in column_names if col != "text"])
+    dataset = tokenize_dataset(
+        dataset, tokenizer, sequence_length=sequence_length, num_proc=num_proc
+    )
+    os.makedirs(DATASET_CACHE_ROOT, exist_ok=True)
+    dataset.save_to_disk(cache_dir)
+    print(f"Saved LM dataset cache to {cache_dir}")
+    return dataset
+
 
 def main():
     parser = TrlParser((SFTConfig, ModelConfig, CustomArgs))
     training_args, models_args, custom_args, _ = parser.parse_args_and_config(return_remaining_strings=True)
     print(custom_args)
+
+    tokenizer = AutoTokenizer.from_pretrained(models_args.model_name_or_path)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    sequence_length = min(512, tokenizer.model_max_length)
+    num_proc = getattr(training_args, "dataset_num_proc", None) or 32
+    dataset = load_or_build_lm_dataset(
+        tokenizer,
+        models_args.model_name_or_path,
+        sequence_length=sequence_length,
+        num_proc=num_proc,
+    )
 
     #! load the model
     model_kwargs = {
@@ -87,9 +145,10 @@ def main():
     }
 
     model = AutoModelForCausalLM.from_pretrained(models_args.model_name_or_path, **model_kwargs)
-    tokenizer = AutoTokenizer.from_pretrained(models_args.model_name_or_path)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+
+    # FlashAttention (and ChristMark's bias check) need the model on CUDA before any forward.
+    if torch.cuda.is_available():
+        model = model.cuda()
 
     watermark_type = custom_args.watermark_type
 
@@ -136,15 +195,6 @@ def main():
         pass
     else:
         raise ValueError(f"Unsupported watermark_type: {watermark_type}")
-
-    #! use the fineweb-edu dataset
-    # dataset = load_dataset("HuggingFaceFW/fineweb-edu", name="sample-10BT", split="train", streaming=False)
-
-    dataset = load_dataset("Skylion007/openwebtext", split="train[0:500000]", num_proc=32, trust_remote_code=True, streaming=False)
-    dataset = dataset.shuffle(seed=739).select(range(500000))
-    column_names = dataset.column_names
-    dataset = dataset.remove_columns([col for col in column_names if col != "text"])
-    dataset = tokenize_dataset(dataset, tokenizer, sequence_length=min(512, tokenizer.model_max_length))
 
     if custom_args.target_param_config == 2:
         for param in model.parameters():

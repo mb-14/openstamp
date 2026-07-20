@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Plot finetuning resistance curves (TPR@1%FPR vs step) for COLM figures.
 
-Matches the paper figure style/ordering, omitting the OpenStamp (Targeted)
-curve that appears only in the Llama COLM plot.
+Includes OpenStamp, GaussMark, KGW Distilled, and Unremovable.
 """
 
 from __future__ import annotations
@@ -24,10 +23,10 @@ if str(_DIR) not in sys.path:
 
 from _plot_style import METHOD_COLORS, add_tex_flag, apply_paper_style, save_figure
 
-METHODS = ("openstamp", "gaussmark", "distilled")
+METHODS = ("openstamp", "gaussmark", "distilled", "unremovable")
 
-# Paper legend order (without OpenStamp Targeted): GaussMark, KGW Distilled, OpenStamp.
-PLOT_ORDER = ("GaussMark", "KGW Distilled", "OpenStamp")
+# Legend order: open-weight methods first, then decoding-based OpenStamp.
+PLOT_ORDER = ("GaussMark", "Unremovable", "KGW Distilled", "OpenStamp")
 
 MODELS = {
     "llama": {
@@ -44,6 +43,7 @@ METHOD_TO_LABEL = {
     "openstamp": "OpenStamp",
     "gaussmark": "GaussMark",
     "distilled": "KGW Distilled",
+    "unremovable": "Unremovable",
 }
 
 

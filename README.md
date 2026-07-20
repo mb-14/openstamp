@@ -1,6 +1,29 @@
 # OpenStamp
 
-A watermarking method for open-source Large Language Models.
+A watermarking method for open-weight Large Language Models.
+
+## Background
+
+Most LLM watermarks bias token sampling at decode time. That works when a provider controls inference, but open-weight release breaks the assumption: anyone who downloads the checkpoint can disable generation-time watermarking and still produce fluent text. The watermark must therefore live in the weights themselves, and remain detectable after users quantize, fine-tune, or paraphrase model outputs—conditions under which existing open-weight methods often fail.
+
+**OpenStamp** embeds the signal by adding a factorized offset to the unembedding layer, so ordinary sampling from the released checkpoint produces watermarked text. Detection compares a length-normalized log-likelihood ratio between that checkpoint and a privately retained base model.
+
+<p align="center">
+  <img src="assets/watermarking_overview.png" alt="OpenStamp embedding overview" width="100%"/>
+</p>
+
+On the detectability–utility frontier, OpenStamp reaches near-perfect detection at low false-positive rates while keeping perplexity competitive with prior open-weight baselines:
+
+<p align="center">
+  <img src="assets/pareto_ppl_tpr.png" alt="Pareto plot of TPR vs perplexity on Llama-2-7B" width="80%"/>
+</p>
+
+Robustness still leaves clear headroom. After LLM paraphrasing, TPR@1%FPR falls from near 1.0 to about 0.91 on Llama-2-7B and 0.79 on Mistral-7B. Post-hoc LoRA fine-tuning erodes the signal further—OpenStamp remains ahead of GaussMark, KGW Distilled, and Unremovable, but detectability declines steadily with training steps:
+
+<p align="center">
+  <img src="assets/finetuning_llama.png" alt="Finetuning durability on Llama-2-7B" width="45%"/>
+  <img src="assets/finetuning_mistral.png" alt="Finetuning durability on Mistral-7B" width="45%"/>
+</p>
 
 ## Setup Environment
 

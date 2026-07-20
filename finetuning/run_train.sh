@@ -14,9 +14,11 @@ distilled_model_path="cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-d
 
 base_checkpoint_dir="finetuning/colm"
 output_dir=""
+hub_model_id=""
+hub_private="true"
 
 usage() {
-    echo "Usage: $0 [--watermark value] [--model value] [--seed value] [--distilled_model_path value] [--output_dir value]"
+    echo "Usage: $0 [--watermark value] [--model value] [--seed value] [--distilled_model_path value] [--output_dir value] [--hub_model_id value] [--hub_private true|false]"
 }
 
 set_option() {
@@ -29,6 +31,8 @@ set_option() {
         --seed) seed="$value" ;;
         --distilled_model_path) distilled_model_path="$value" ;;
         --output_dir) output_dir="$value" ;;
+        --hub_model_id) hub_model_id="$value" ;;
+        --hub_private) hub_private="$value" ;;
         *)
             echo "Error: Unknown option '$option'"
             usage
@@ -47,7 +51,7 @@ require_value() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --watermark|--model|--seed|--distilled_model_path|--output_dir)
+        --watermark|--model|--seed|--distilled_model_path|--output_dir|--hub_model_id|--hub_private)
             require_value "$1" "$2"
             set_option "$1" "$2"
             shift 2
@@ -102,7 +106,19 @@ run_train() {
     echo "Target Config: ${target_config}"
     echo "------------------------------------------------"
 
-    accelerate launch --config_file finetuning/train_z1.yaml -m finetuning.run_trainer_finetune \
+    # Optional Hub push (every Trainer save / checkpoint).
+    local hub_args=()
+    if [[ -n "$hub_model_id" ]]; then
+        hub_args+=(
+            --push_to_hub true
+            --hub_model_id "$hub_model_id"
+            --hub_strategy checkpoint
+            --hub_private_repo "$hub_private"
+        )
+        echo "Hugging Face Hub: $hub_model_id (strategy=checkpoint, private=$hub_private)"
+    fi
+
+    accelerate launch --config_file finetuning/train_single.yaml -m finetuning.run_trainer_finetune \
         --model_name_or_path "$model_path" \
         --selector_matrix_dir "$selector_dir" \
         --watermark_type "$w_type" \
@@ -113,6 +129,8 @@ run_train() {
         --max_steps 2500 \
         --num_train_epochs 1 \
         --dtype bfloat16 \
+        --attn_implementation sdpa \
+        --bf16 true \
         --per_device_train_batch_size 12 \
         --per_device_eval_batch_size 12 \
         --gradient_checkpointing false \
@@ -123,11 +141,12 @@ run_train() {
         --report_to wandb \
         --warmup_ratio 0.1 \
         --learning_rate 2e-5 \
-        --dataset_num_proc 32 \
+        --dataset_num_proc 8 \
         --lr_scheduler_type cosine \
         --optim adafactor \
         --loss_type nll \
-        --gpu_ids all
+        --gpu_ids all \
+        "${hub_args[@]}"
     
     echo "Checkpoint saved to: $final_output_dir"
 }

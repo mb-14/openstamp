@@ -7,6 +7,7 @@ results/
 saved_models/
 wandb/
 finetuning/colm/
+finetuning/cache/
 finetuning/openstamp_iclr_rebuttal/
 .rsyncignore
 .vscode/
