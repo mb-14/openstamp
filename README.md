@@ -4,7 +4,13 @@ A watermarking method for open-weight Large Language Models.
 
 ## Background
 
-Most LLM watermarks bias token sampling at decode time. That works when a provider controls inference, but open-weight release breaks the assumption: anyone who downloads the checkpoint can disable generation-time watermarking and still produce fluent text. The watermark must therefore live in the weights themselves, and remain detectable after users quantize, fine-tune, or paraphrase model outputs—conditions under which existing open-weight methods often fail.
+Most LLM watermarks bias token sampling at decode time. That works when a provider controls inference, but open-weight release breaks the assumption: anyone who downloads the checkpoint can disable generation-time watermarking and still produce fluent text.
+
+<p align="center">
+  <img src="assets/watermark_disable.png" alt="Disabling a decode-time watermark by commenting out the logits processor" width="70%"/>
+</p>
+
+The watermark must therefore live in the weights themselves, and remain detectable after users quantize, fine-tune, or paraphrase model outputs—conditions under which existing open-weight methods often fail.
 
 **OpenStamp** embeds the signal by adding a factorized offset to the unembedding layer, so ordinary sampling from the released checkpoint produces watermarked text. Detection compares a length-normalized log-likelihood ratio between that checkpoint and a privately retained base model.
 
