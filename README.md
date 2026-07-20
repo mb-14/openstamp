@@ -12,7 +12,7 @@ Most LLM watermarks bias token sampling at decode time. That works when a provid
 
 The watermark must therefore live in the weights themselves, and remain detectable after users quantize, fine-tune, or paraphrase model outputs—conditions under which existing open-weight methods often fail.
 
-**OpenStamp** embeds the signal by adding a factorized offset to the unembedding layer, so ordinary sampling from the released checkpoint produces watermarked text. Detection compares a length-normalized log-likelihood ratio between that checkpoint and a privately retained base model.
+**OpenStamp** embeds the signal by adding a factorized offset to the unembedding layer, so ordinary sampling from the released checkpoint produces watermarked text. Detection compares a length-normalized log-likelihood ratio between that checkpoint and a privately retained base model. See [How it works](METHOD.md) for the full method.
 
 <p align="center">
   <img src="assets/watermarking_overview.png" alt="OpenStamp embedding overview" width="100%"/>
