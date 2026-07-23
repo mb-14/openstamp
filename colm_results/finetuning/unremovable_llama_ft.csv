@@ -1,7 +1,7 @@
 model,method,config_id,step,tpr_1_fpr_mean,tpr_1_fpr_std,n_seeds
-Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,0,0.994,0.0,1
-Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,500,0.072,0.0,1
-Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,1000,0.036,0.0,1
-Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,1500,0.024,0.0,1
-Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,2000,0.04,0.0,1
-Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,2500,0.026,0.0,1
+Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,0,0.9940000000000001,0.0040000000000000036,3
+Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,500,0.057999999999999996,0.012165525060596436,3
+Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,1000,0.02733333333333333,0.008082903768654759,3
+Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,1500,0.02,0.006928203230275509,3
+Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,2000,0.023333333333333334,0.017009801096230764,3
+Llama-2-7b-hf,unremovable,unremovable_epsilon0.8,2500,0.02,0.008717797887081347,3

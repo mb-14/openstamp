@@ -1,7 +1,7 @@
 model,method,config_id,step,tpr_1_fpr_mean,tpr_1_fpr_std,n_seeds
-Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,0,0.996,0.0,1
-Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,500,0.044,0.0,1
-Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,1000,0.042,0.0,1
-Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,1500,0.024,0.0,1
-Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,2000,0.028,0.0,1
-Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,2500,0.028,0.0,1
+Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,0,0.996,0.0,3
+Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,500,0.03866666666666666,0.009237604307034011,3
+Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,1000,0.02666666666666667,0.013613718571108093,3
+Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,1500,0.021333333333333333,0.004618802153517006,3
+Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,2000,0.021333333333333333,0.008326663997864532,3
+Mistral-7B-v0.3,unremovable,unremovable_epsilon0.8,2500,0.024666666666666667,0.005773502691896259,3
