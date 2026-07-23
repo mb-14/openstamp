@@ -7,18 +7,17 @@ watermark="openstamp"
 model="llama"
 target_config="1" # Default value (config 1: Lora on all internal linear layers + unembedding layer)
 seed=15485863
-distilled_model_path="cygu/llama-2-7b-logit-watermark-distill-kgw-k1-gamma0.25-delta2"
+distilled_model_path=""
+ft_dataset="openwebtext"
 # 0 - Lora on all internal linear layers
 # 1 - Lora on all internal linear layers + unembedding layer
 # 2 - Full fine-tuning (no LoRA) on unembedding layer only
 
 base_checkpoint_dir="finetuning/colm"
 output_dir=""
-hub_model_id=""
-hub_private="true"
 
 usage() {
-    echo "Usage: $0 [--watermark value] [--model value] [--seed value] [--distilled_model_path value] [--output_dir value] [--hub_model_id value] [--hub_private true|false]"
+    echo "Usage: $0 [--watermark value] [--model value] [--seed value] [--ft_dataset openwebtext|alpaca] [--distilled_model_path value] [--output_dir value]"
 }
 
 set_option() {
@@ -29,10 +28,9 @@ set_option() {
         --watermark) watermark="$value" ;;
         --model) model="$value" ;;
         --seed) seed="$value" ;;
+        --ft_dataset) ft_dataset="$value" ;;
         --distilled_model_path) distilled_model_path="$value" ;;
         --output_dir) output_dir="$value" ;;
-        --hub_model_id) hub_model_id="$value" ;;
-        --hub_private) hub_private="$value" ;;
         *)
             echo "Error: Unknown option '$option'"
             usage
@@ -51,7 +49,7 @@ require_value() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --watermark|--model|--seed|--distilled_model_path|--output_dir|--hub_model_id|--hub_private)
+        --watermark|--model|--seed|--ft_dataset|--distilled_model_path|--output_dir)
             require_value "$1" "$2"
             set_option "$1" "$2"
             shift 2
@@ -83,6 +81,15 @@ case "$model" in
     *) echo "Error: model must be 'llama', 'mistral', or 'qwen'"; exit 1 ;;
 esac
 
+case "$ft_dataset" in
+    "openwebtext"|"alpaca") echo "FT dataset: $ft_dataset" ;;
+    *) echo "Error: ft_dataset must be 'openwebtext' or 'alpaca'"; exit 1 ;;
+esac
+
+if [[ "$ft_dataset" == "alpaca" ]]; then
+    base_checkpoint_dir="finetuning/colm_alpaca"
+fi
+
 # --- 3. Define the Training Function ---
 run_train() {
     local base_name=$1
@@ -92,6 +99,9 @@ run_train() {
 
     # Accessing the global $target_config to create suffixes
     local final_run_name="${base_name}_config${target_config}_seed${seed}"
+    if [[ "$ft_dataset" == "alpaca" ]]; then
+        final_run_name="${base_name}_alpaca_config${target_config}_seed${seed}"
+    fi
     local final_output_dir="${base_checkpoint_dir}/${final_run_name}"
 
     if [[ -n "$output_dir" ]]; then
@@ -100,25 +110,19 @@ run_train() {
 
     unset WANDB_RUN_NAME WANDB_RUN_ID
     export WANDB_RUN_NAME="$final_run_name"
-    
+
     echo "------------------------------------------------"
     echo "Running training for: ${WANDB_RUN_NAME}"
     echo "Target Config: ${target_config}"
+    echo "FT dataset: ${ft_dataset}"
     echo "------------------------------------------------"
 
-    # Optional Hub push (every Trainer save / checkpoint).
-    local hub_args=()
-    if [[ -n "$hub_model_id" ]]; then
-        hub_args+=(
-            --push_to_hub true
-            --hub_model_id "$hub_model_id"
-            --hub_strategy checkpoint
-            --hub_private_repo "$hub_private"
-        )
-        echo "Hugging Face Hub: $hub_model_id (strategy=checkpoint, private=$hub_private)"
+    local dataset_args=(--ft_dataset "$ft_dataset")
+    if [[ "$ft_dataset" == "alpaca" ]]; then
+        dataset_args+=(--max_length 512)
     fi
 
-    accelerate launch --config_file finetuning/train_single.yaml -m finetuning.run_trainer_finetune \
+    accelerate launch --config_file finetuning/train_z1.yaml -m finetuning.run_trainer_finetune \
         --model_name_or_path "$model_path" \
         --selector_matrix_dir "$selector_dir" \
         --watermark_type "$w_type" \
@@ -133,6 +137,8 @@ run_train() {
         --bf16 true \
         --per_device_train_batch_size 12 \
         --per_device_eval_batch_size 12 \
+        --dataloader_num_workers 4 \
+        --dataloader_pin_memory true \
         --gradient_checkpointing false \
         --gradient_accumulation_steps 4 \
         --do_train true \
@@ -146,9 +152,18 @@ run_train() {
         --optim adafactor \
         --loss_type nll \
         --gpu_ids all \
-        "${hub_args[@]}"
+        "${dataset_args[@]}"
     
     echo "Checkpoint saved to: $final_output_dir"
+}
+
+resolve_distilled_path() {
+    local base_model=$1
+    local wm_seed=$2
+    python - <<PY
+from src.kgw_distilled import resolve_distilled_model
+print(resolve_distilled_model("$base_model", $wm_seed))
+PY
 }
 
 # --- 4. Execution Logic ---
@@ -171,15 +186,18 @@ elif [ "$watermark" == "unremovable" ] || [ "$watermark" == "christ" ]; then
     run_train "unremovable_${model_suffix}" "$model_path" "" "unremovable"
 
 elif [ "$watermark" == "kgw_distilled" ]; then
-    if [ "$model" != "llama" ]; then
-        echo "Error: kgw_distilled is only supported for model=llama"
+    if [[ "$model" != "llama" && "$model" != "mistral" ]]; then
+        echo "Error: kgw_distilled is only supported for model=llama|mistral"
         exit 1
     fi
 
-    # Change this path with --distilled_model_path if needed
-    model_name_or_path="$distilled_model_path"
-    # Run name is a label for wandb and output directory
-    run_name="kgw_distilled_Llama-2-7b-hf"
+    if [[ -n "$distilled_model_path" ]]; then
+        model_name_or_path="$distilled_model_path"
+    else
+        model_name_or_path="$(resolve_distilled_path "$model_path" "$seed")"
+    fi
+    echo "Distilled checkpoint: $model_name_or_path"
+    run_name="kgw_distilled_${model_suffix}"
 
     run_train "$run_name" "$model_name_or_path" "" "kgw_distilled"
 

@@ -24,6 +24,9 @@ DATASET_N_DOCS = 500_000
 DATASET_SHUFFLE_SEED = 739
 DATASET_CACHE_ROOT = os.path.join("finetuning", "cache")
 
+ALPACA_DATASET_NAME = "tatsu-lab/alpaca"
+ALPACA_MAX_LENGTH = 512
+
 GAUSSMARK_CONFIG = {
     "meta-llama/Llama-2-7b-hf": {
         "target_param_name": "model.layers.27.mlp.up_proj.weight",
@@ -44,6 +47,7 @@ class CustomArgs:
     watermark_seed: int
     watermark_type: str = "openstamp"
     target_param_config: int = 0
+    ft_dataset: str = "openwebtext"
 
 
 def tokenize_function(examples, tokenizer):
@@ -119,23 +123,49 @@ def load_or_build_lm_dataset(tokenizer, model_name_or_path: str, sequence_length
     return dataset
 
 
+def load_alpaca_dataset(num_proc: int = 8):
+    """Load Stanford Alpaca with the dataset's preformatted `text` field."""
+    print(f"Loading {ALPACA_DATASET_NAME} (instruction SFT)")
+    dataset = load_dataset(ALPACA_DATASET_NAME, split="train", num_proc=num_proc)
+    keep = [c for c in dataset.column_names if c == "text"]
+    drop = [c for c in dataset.column_names if c != "text"]
+    if not keep:
+        raise ValueError(f"{ALPACA_DATASET_NAME} has no 'text' column: {dataset.column_names}")
+    if drop:
+        dataset = dataset.remove_columns(drop)
+    print(f"Alpaca examples: {len(dataset)}")
+    return dataset
+
+
 def main():
     parser = TrlParser((SFTConfig, ModelConfig, CustomArgs))
     training_args, models_args, custom_args, _ = parser.parse_args_and_config(return_remaining_strings=True)
     print(custom_args)
 
+    ft_dataset = (custom_args.ft_dataset or "openwebtext").lower()
+    if ft_dataset not in {"openwebtext", "alpaca"}:
+        raise ValueError(f"Unsupported ft_dataset={ft_dataset!r}; expected openwebtext|alpaca")
+
     tokenizer = AutoTokenizer.from_pretrained(models_args.model_name_or_path)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    sequence_length = min(512, tokenizer.model_max_length)
     num_proc = getattr(training_args, "dataset_num_proc", None) or 32
-    dataset = load_or_build_lm_dataset(
-        tokenizer,
-        models_args.model_name_or_path,
-        sequence_length=sequence_length,
-        num_proc=num_proc,
-    )
+    if ft_dataset == "alpaca":
+        dataset = load_alpaca_dataset(num_proc=num_proc)
+        # Match OpenWebText FT sequence length; SFTTrainer tokenizes `text`.
+        if getattr(training_args, "max_length", None) in (None, 1024):
+            training_args.max_length = ALPACA_MAX_LENGTH
+        training_args.dataset_text_field = "text"
+        training_args.packing = False
+    else:
+        sequence_length = min(512, tokenizer.model_max_length)
+        dataset = load_or_build_lm_dataset(
+            tokenizer,
+            models_args.model_name_or_path,
+            sequence_length=sequence_length,
+            num_proc=num_proc,
+        )
 
     #! load the model
     model_kwargs = {
