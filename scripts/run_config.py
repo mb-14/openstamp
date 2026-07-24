@@ -108,6 +108,13 @@ def _build_output_file(
             f"{output_dir}/output_seed={watermark_seed}_delta={delta}_gamma={gamma}"
             f"_watermark={method}_dataset={dataset}"
         )
+    elif method == "adaptive":
+        delta = param["delta"]
+        alpha = param["alpha"]
+        output_file = (
+            f"{output_dir}/output_seed={watermark_seed}_delta={delta}_alpha={alpha}"
+            f"_watermark={method}_dataset={dataset}"
+        )
     elif method == "distilled":
         delta = param["delta"]
         gamma = param["gamma"]

@@ -24,6 +24,7 @@ from src.kgwmark import KGWMark
 from src.openstamp import OpenStamp
 from src.rlmark import RLMark
 from src.unigramwm import Unigram
+from src.adaptive_watermark import AdaptiveMark, DEFAULT_SMM_PATH
 from src.utils import load_model
 
 torch.manual_seed(42)
@@ -208,6 +209,31 @@ def build_watermark(output_data: dict, model, tokenizer):
             hash_key=config["watermark_seed"],
             tokenizer=tokenizer,
         )
+    elif watermark_type == "adaptive":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        watermark = AdaptiveMark(
+            tokenizer=tokenizer,
+            model=None,
+            device=device,
+            prompt_length=config.get("prompt_length", 50),
+            alpha=config.get("alpha", 2.0),
+            delta=config.get("delta", 1.5),
+            delta_0=config.get("delta_0", 1.0),
+            measure_threshold=config.get("measure_threshold", 50),
+            secret_string=config.get(
+                "secret_string",
+                "The quick brown fox jumps over the lazy dog",
+            ),
+            measure_model_name=config.get(
+                "measure_model", "openai-community/gpt2-large"
+            ),
+            embedder_name=config.get(
+                "embedder", "sentence-transformers/all-mpnet-base-v2"
+            ),
+            smm_path=config.get("smm_path", str(DEFAULT_SMM_PATH)),
+            mapping_seed=config.get("watermark_seed", 66),
+        )
+        batch_size = 16
     elif watermark_type == "rl":
         watermark = RLMark(
             rl_model_path=config["rl_model_path"],
@@ -312,7 +338,14 @@ def main() -> None:
         tokenizer.pad_token = tokenizer.eos_token
 
     watermark_type = output_data["watermark"]
-    should_load_model = watermark_type not in ["distilled", "kgw", "unigram", "christ", "unremovable"]
+    should_load_model = watermark_type not in [
+        "distilled",
+        "kgw",
+        "unigram",
+        "christ",
+        "unremovable",
+        "adaptive",
+    ]
     if should_load_model:
         model, tokenizer = load_model(model_name)
     else:
@@ -344,7 +377,7 @@ def main() -> None:
     with torch.no_grad():
         torch.cuda.empty_cache()
 
-    batch_size = batch_size // 2
+    batch_size = max(1, batch_size // 2)
 
     optional_columns = [
         ("dipper_text_lex60_order0", "metrics_dipper_text_lex60_order0", "Dipper 60 Metrics"),

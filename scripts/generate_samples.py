@@ -5,6 +5,7 @@ from src.gaussmark import GaussMark
 from src.kgwmark import KGWMark
 from src.kgw_distilled import KGWDistilled
 from src.unigramwm import Unigram
+from src.adaptive_watermark import AdaptiveMark, DEFAULT_SMM_PATH
 import os
 import json
 from pathlib import Path
@@ -43,7 +44,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--generation_seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="openstamp", choices=["openstamp", "openstamp_binom", "openstamp_discrete", "gaussmark", "unremovable", "christ", "noise", "distilled", "kgw", "kgw_llr", "rl", "unigram"],)
+                        default="openstamp", choices=["openstamp", "openstamp_binom", "openstamp_discrete", "gaussmark", "unremovable", "christ", "noise", "distilled", "kgw", "kgw_llr", "rl", "unigram", "adaptive"],)
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
@@ -79,6 +80,36 @@ def parse_args():
         default="none",
         choices=["none", "nf4", "int8"],
         help="bitsandbytes load-time quantization for generation (none/nf4/int8)",
+    )
+    parser.add_argument("--alpha", type=float, default=2.0,
+                        help="Entropy threshold for Adaptive watermark")
+    parser.add_argument("--delta_0", type=float, default=1.0,
+                        help="Early-token bias strength for Adaptive watermark")
+    parser.add_argument("--measure_threshold", type=int, default=50,
+                        help="Tokens before entropy gating for Adaptive watermark")
+    parser.add_argument(
+        "--measure_model",
+        type=str,
+        default="openai-community/gpt2-large",
+        help="Auxiliary LM for Adaptive entropy measurement",
+    )
+    parser.add_argument(
+        "--embedder",
+        type=str,
+        default="sentence-transformers/all-mpnet-base-v2",
+        help="Sentence embedding model for Adaptive watermark",
+    )
+    parser.add_argument(
+        "--smm_path",
+        type=str,
+        default=str(DEFAULT_SMM_PATH),
+        help="Path to Adaptive Semantic Mapping Model weights",
+    )
+    parser.add_argument(
+        "--secret_string",
+        type=str,
+        default="The quick brown fox jumps over the lazy dog",
+        help="Secret string used for Adaptive early-token watermarking",
     )
 
     args = parser.parse_args()
@@ -321,6 +352,23 @@ elif args.watermark == "kgw" or args.watermark == "kgw_llr":
 elif args.watermark == "unigram":
     watermark = Unigram(gamma=args.gamma, delta=args.delta, hash_key=args.watermark_seed, tokenizer=tokenizer)
     watermarked_processor = watermark.watermark
+elif args.watermark == "adaptive":
+    watermark = AdaptiveMark(
+        tokenizer=tokenizer,
+        model=model,
+        device=device,
+        prompt_length=args.prompt_length,
+        alpha=args.alpha,
+        delta=args.delta,
+        delta_0=args.delta_0,
+        measure_threshold=args.measure_threshold,
+        secret_string=args.secret_string,
+        measure_model_name=args.measure_model,
+        embedder_name=args.embedder,
+        smm_path=args.smm_path,
+        mapping_seed=args.watermark_seed,
+    )
+    watermarked_processor = watermark.watermark
 elif args.watermark == "rl":
     watermarked_model = convert_linear_layer_to_lora(
         model, part_module_name='decoder.layers.', lora_dim=128)
@@ -480,6 +528,19 @@ elif args.watermark == "unigram":
         "gamma": args.gamma,
         "delta": args.delta,
         "watermark_seed": args.watermark_seed,
+    }
+elif args.watermark == "adaptive":
+    config = {
+        "alpha": args.alpha,
+        "delta": args.delta,
+        "delta_0": args.delta_0,
+        "measure_threshold": args.measure_threshold,
+        "secret_string": args.secret_string,
+        "measure_model": args.measure_model,
+        "embedder": args.embedder,
+        "smm_path": args.smm_path,
+        "watermark_seed": args.watermark_seed,
+        "prompt_length": args.prompt_length,
     }
 elif args.watermark == "rl":
     config = {
