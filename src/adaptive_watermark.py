@@ -22,6 +22,9 @@ DEFAULT_SMM_PATH = (
 DEFAULT_SECRET = "The quick brown fox jumps over the lazy dog"
 DEFAULT_EMBEDDER = "sentence-transformers/all-mpnet-base-v2"
 DEFAULT_MEASURE_MODEL = "openai-community/gpt2-large"
+DEFAULT_ALPHA = 2.0
+DEFAULT_DELTA_0 = 1.0
+DEFAULT_MEASURE_THRESHOLD = 50
 SMM_OUTPUT_DIM = 384
 # Chunk sizes for batched detection (entropy / SBERT).
 ENTROPY_CHUNK = 32
@@ -48,10 +51,10 @@ class AdaptiveLogitsProcessor(LogitsProcessor):
         mapping_list: Sequence[int],
         device: torch.device,
         prompt_length: int,
-        alpha: float = 2.0,
+        alpha: float = DEFAULT_ALPHA,
         delta: float = 1.5,
-        delta_0: float = 1.0,
-        measure_threshold: int = 50,
+        delta_0: float = DEFAULT_DELTA_0,
+        measure_threshold: int = DEFAULT_MEASURE_THRESHOLD,
         secret_string: str = DEFAULT_SECRET,
     ):
         self.tokenizer = tokenizer
@@ -190,10 +193,10 @@ class AdaptiveMark:
         model=None,
         device: Optional[torch.device] = None,
         prompt_length: int = 50,
-        alpha: float = 2.0,
+        alpha: float = DEFAULT_ALPHA,
         delta: float = 1.5,
-        delta_0: float = 1.0,
-        measure_threshold: int = 50,
+        delta_0: float = DEFAULT_DELTA_0,
+        measure_threshold: int = DEFAULT_MEASURE_THRESHOLD,
         secret_string: str = DEFAULT_SECRET,
         measure_model_name: str = DEFAULT_MEASURE_MODEL,
         embedder_name: str = DEFAULT_EMBEDDER,

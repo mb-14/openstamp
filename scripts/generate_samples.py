@@ -5,7 +5,7 @@ from src.gaussmark import GaussMark
 from src.kgwmark import KGWMark
 from src.kgw_distilled import KGWDistilled
 from src.unigramwm import Unigram
-from src.adaptive_watermark import AdaptiveMark, DEFAULT_SMM_PATH
+from src.adaptive_watermark import AdaptiveMark
 import os
 import json
 from pathlib import Path
@@ -80,36 +80,6 @@ def parse_args():
         default="none",
         choices=["none", "nf4", "int8"],
         help="bitsandbytes load-time quantization for generation (none/nf4/int8)",
-    )
-    parser.add_argument("--alpha", type=float, default=2.0,
-                        help="Entropy threshold for Adaptive watermark")
-    parser.add_argument("--delta_0", type=float, default=1.0,
-                        help="Early-token bias strength for Adaptive watermark")
-    parser.add_argument("--measure_threshold", type=int, default=50,
-                        help="Tokens before entropy gating for Adaptive watermark")
-    parser.add_argument(
-        "--measure_model",
-        type=str,
-        default="openai-community/gpt2-large",
-        help="Auxiliary LM for Adaptive entropy measurement",
-    )
-    parser.add_argument(
-        "--embedder",
-        type=str,
-        default="sentence-transformers/all-mpnet-base-v2",
-        help="Sentence embedding model for Adaptive watermark",
-    )
-    parser.add_argument(
-        "--smm_path",
-        type=str,
-        default=str(DEFAULT_SMM_PATH),
-        help="Path to Adaptive Semantic Mapping Model weights",
-    )
-    parser.add_argument(
-        "--secret_string",
-        type=str,
-        default="The quick brown fox jumps over the lazy dog",
-        help="Secret string used for Adaptive early-token watermarking",
     )
 
     args = parser.parse_args()
@@ -358,14 +328,7 @@ elif args.watermark == "adaptive":
         model=model,
         device=device,
         prompt_length=args.prompt_length,
-        alpha=args.alpha,
         delta=args.delta,
-        delta_0=args.delta_0,
-        measure_threshold=args.measure_threshold,
-        secret_string=args.secret_string,
-        measure_model_name=args.measure_model,
-        embedder_name=args.embedder,
-        smm_path=args.smm_path,
         mapping_seed=args.watermark_seed,
     )
     watermarked_processor = watermark.watermark
@@ -531,14 +494,7 @@ elif args.watermark == "unigram":
     }
 elif args.watermark == "adaptive":
     config = {
-        "alpha": args.alpha,
         "delta": args.delta,
-        "delta_0": args.delta_0,
-        "measure_threshold": args.measure_threshold,
-        "secret_string": args.secret_string,
-        "measure_model": args.measure_model,
-        "embedder": args.embedder,
-        "smm_path": args.smm_path,
         "watermark_seed": args.watermark_seed,
         "prompt_length": args.prompt_length,
     }

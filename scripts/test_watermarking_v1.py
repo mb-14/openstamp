@@ -24,7 +24,7 @@ from src.kgwmark import KGWMark
 from src.openstamp import OpenStamp
 from src.rlmark import RLMark
 from src.unigramwm import Unigram
-from src.adaptive_watermark import AdaptiveMark, DEFAULT_SMM_PATH
+from src.adaptive_watermark import AdaptiveMark
 from src.utils import load_model
 
 torch.manual_seed(42)
@@ -216,21 +216,7 @@ def build_watermark(output_data: dict, model, tokenizer):
             model=None,
             device=device,
             prompt_length=config.get("prompt_length", 50),
-            alpha=config.get("alpha", 2.0),
-            delta=config.get("delta", 1.5),
-            delta_0=config.get("delta_0", 1.0),
-            measure_threshold=config.get("measure_threshold", 50),
-            secret_string=config.get(
-                "secret_string",
-                "The quick brown fox jumps over the lazy dog",
-            ),
-            measure_model_name=config.get(
-                "measure_model", "openai-community/gpt2-large"
-            ),
-            embedder_name=config.get(
-                "embedder", "sentence-transformers/all-mpnet-base-v2"
-            ),
-            smm_path=config.get("smm_path", str(DEFAULT_SMM_PATH)),
+            delta=config["delta"],
             mapping_seed=config.get("watermark_seed", 66),
         )
         batch_size = 16
