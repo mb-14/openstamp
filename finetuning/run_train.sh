@@ -5,16 +5,19 @@ base_selector_dir="saved_models_new"
 # --- 1. Parse Arguments ---
 watermark="openstamp"
 model="llama"
-target_config="1" # Default value (config 1: Lora on all internal linear layers + unembedding layer)
+# OpenWebText durability FT defaults to config1 (LoRA + lm_head).
+# Alpaca instruction FT overrides to config0 (attn+MLP only; no lm_head).
+target_config="1"
 seed=15485863
 distilled_model_path=""
 ft_dataset="openwebtext"
-# 0 - Lora on all internal linear layers
-# 1 - Lora on all internal linear layers + unembedding layer
+# 0 - Lora on attn+MLP projections only (q/k/v/o/gate/up/down)
+# 1 - Lora on attn+MLP + unembedding (lm_head)
 # 2 - Full fine-tuning (no LoRA) on unembedding layer only
 
 base_checkpoint_dir="finetuning/colm"
 output_dir=""
+accel_config="finetuning/train_config.yaml"
 
 usage() {
     echo "Usage: $0 [--watermark value] [--model value] [--seed value] [--ft_dataset openwebtext|alpaca] [--distilled_model_path value] [--output_dir value]"
@@ -88,7 +91,11 @@ esac
 
 if [[ "$ft_dataset" == "alpaca" ]]; then
     base_checkpoint_dir="finetuning/colm_alpaca"
+    # Realistic attacker: LoRA on attn+MLP only (no lm_head).
+    target_config="0"
 fi
+
+ft_config="finetuning/ft_${ft_dataset}.yaml"
 
 # --- 3. Define the Training Function ---
 run_train() {
@@ -97,7 +104,6 @@ run_train() {
     local selector_dir=$3
     local w_type=$4
 
-    # Accessing the global $target_config to create suffixes
     local final_run_name="${base_name}_config${target_config}_seed${seed}"
     if [[ "$ft_dataset" == "alpaca" ]]; then
         final_run_name="${base_name}_alpaca_config${target_config}_seed${seed}"
@@ -114,46 +120,19 @@ run_train() {
     echo "------------------------------------------------"
     echo "Running training for: ${WANDB_RUN_NAME}"
     echo "Target Config: ${target_config}"
-    echo "FT dataset: ${ft_dataset}"
+    echo "FT dataset: ${ft_dataset} (${ft_config})"
     echo "------------------------------------------------"
 
-    local dataset_args=(--ft_dataset "$ft_dataset")
-    if [[ "$ft_dataset" == "alpaca" ]]; then
-        dataset_args+=(--max_length 512)
-    fi
-
-    accelerate launch --config_file finetuning/train_z1.yaml -m finetuning.run_trainer_finetune \
+    accelerate launch --config_file "$accel_config" -m finetuning.run_trainer_finetune \
+        --config "$ft_config" \
         --model_name_or_path "$model_path" \
         --selector_matrix_dir "$selector_dir" \
         --watermark_type "$w_type" \
         --target_param_config "$target_config" \
         --run_name "$final_run_name" \
         --output_dir "$final_output_dir" \
-        --watermark_seed $seed \
-        --max_steps 2500 \
-        --num_train_epochs 1 \
-        --dtype bfloat16 \
-        --attn_implementation sdpa \
-        --bf16 true \
-        --per_device_train_batch_size 12 \
-        --per_device_eval_batch_size 12 \
-        --dataloader_num_workers 4 \
-        --dataloader_pin_memory true \
-        --gradient_checkpointing false \
-        --gradient_accumulation_steps 4 \
-        --do_train true \
-        --save_strategy steps \
-        --save_steps 500 \
-        --report_to wandb \
-        --warmup_ratio 0.1 \
-        --learning_rate 2e-5 \
-        --dataset_num_proc 8 \
-        --lr_scheduler_type cosine \
-        --optim adafactor \
-        --loss_type nll \
-        --gpu_ids all \
-        "${dataset_args[@]}"
-    
+        --watermark_seed $seed
+
     echo "Checkpoint saved to: $final_output_dir"
 }
 

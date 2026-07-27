@@ -1,0 +1,23 @@
+# OpenWebText durability fine-tuning (1 epoch).
+# Effective batch 48 on 1 GPU: per_device 12 × grad_accum 4.
+ft_dataset: openwebtext
+num_train_epochs: 1
+per_device_train_batch_size: 12
+per_device_eval_batch_size: 12
+gradient_accumulation_steps: 4
+save_strategy: steps
+save_steps: 500
+dtype: bfloat16
+attn_implementation: sdpa
+bf16: true
+dataloader_num_workers: 4
+dataloader_pin_memory: true
+gradient_checkpointing: false
+do_train: true
+report_to: wandb
+warmup_ratio: 0.1
+learning_rate: 2.0e-5
+dataset_num_proc: 8
+lr_scheduler_type: cosine
+optim: adafactor
+loss_type: nll
