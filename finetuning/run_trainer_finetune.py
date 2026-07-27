@@ -24,7 +24,6 @@ DATASET_N_DOCS = 500_000
 DATASET_SHUFFLE_SEED = 739
 DATASET_CACHE_ROOT = os.path.join("finetuning", "cache")
 
-ALPACA_DATASET_NAME = "tatsu-lab/alpaca"
 ALPACA_MAX_LENGTH = 512
 
 GAUSSMARK_CONFIG = {
@@ -124,17 +123,11 @@ def load_or_build_lm_dataset(tokenizer, model_name_or_path: str, sequence_length
 
 
 def load_alpaca_dataset(num_proc: int = 8):
-    """Load Stanford Alpaca with the dataset's preformatted `text` field."""
-    print(f"Loading {ALPACA_DATASET_NAME} (instruction SFT)")
-    dataset = load_dataset(ALPACA_DATASET_NAME, split="train", num_proc=num_proc)
-    keep = [c for c in dataset.column_names if c == "text"]
-    drop = [c for c in dataset.column_names if c != "text"]
-    if not keep:
-        raise ValueError(f"{ALPACA_DATASET_NAME} has no 'text' column: {dataset.column_names}")
-    if drop:
-        dataset = dataset.remove_columns(drop)
-    print(f"Alpaca examples: {len(dataset)}")
-    return dataset
+    """Load full Alpaca as prompt/completion for response-only SFT."""
+    from src.alpaca_split import ALPACA_DATASET_NAME, load_alpaca_sft_dataset
+
+    print(f"Loading {ALPACA_DATASET_NAME} for instruction SFT (response-only loss)")
+    return load_alpaca_sft_dataset(num_proc=num_proc)
 
 
 def main():
@@ -153,11 +146,12 @@ def main():
     num_proc = getattr(training_args, "dataset_num_proc", None) or 32
     if ft_dataset == "alpaca":
         dataset = load_alpaca_dataset(num_proc=num_proc)
-        # Match OpenWebText FT sequence length; SFTTrainer tokenizes `text`.
+        # Canonical Alpaca SFT: prompt ends at ### Response:\n; loss on completion only.
         if getattr(training_args, "max_length", None) in (None, 1024):
             training_args.max_length = ALPACA_MAX_LENGTH
-        training_args.dataset_text_field = "text"
         training_args.packing = False
+        # Auto-enables when prompt+completion columns are present; set explicitly.
+        training_args.completion_only_loss = True
     else:
         sequence_length = min(512, tokenizer.model_max_length)
         dataset = load_or_build_lm_dataset(

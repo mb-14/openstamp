@@ -5,12 +5,14 @@ base_selector_dir="saved_models_new"
 # --- 1. Parse Arguments ---
 watermark="openstamp"
 model="llama"
-target_config="1" # Default value (config 1: Lora on all internal linear layers + unembedding layer)
+# OpenWebText durability FT defaults to config1 (LoRA + lm_head).
+# Alpaca instruction FT overrides to config0 (attn+MLP only; no lm_head).
+target_config="1"
 seed=15485863
 distilled_model_path=""
 ft_dataset="openwebtext"
-# 0 - Lora on all internal linear layers
-# 1 - Lora on all internal linear layers + unembedding layer
+# 0 - Lora on attn+MLP projections only (q/k/v/o/gate/up/down)
+# 1 - Lora on attn+MLP + unembedding (lm_head)
 # 2 - Full fine-tuning (no LoRA) on unembedding layer only
 
 base_checkpoint_dir="finetuning/colm"
@@ -88,6 +90,8 @@ esac
 
 if [[ "$ft_dataset" == "alpaca" ]]; then
     base_checkpoint_dir="finetuning/colm_alpaca"
+    # Realistic attacker: LoRA on attn+MLP only (no lm_head).
+    target_config="0"
 fi
 
 # --- 3. Define the Training Function ---
@@ -118,11 +122,25 @@ run_train() {
     echo "------------------------------------------------"
 
     local dataset_args=(--ft_dataset "$ft_dataset")
+    local accel_config="finetuning/train_z1.yaml"
+    # OpenWebText: 2500 steps, eff batch 48 (bs 12 × accum 4 × 1 GPU).
+    # Alpaca: 1 epoch = 406 steps, eff batch 128 (bs 8 × accum 16 × 1 GPU).
+    local max_steps_args=(--max_steps 2500)
+    local batch_size=12
+    local grad_accum=4
+    local save_steps=500
     if [[ "$ft_dataset" == "alpaca" ]]; then
-        dataset_args+=(--max_length 512)
+        dataset_args+=(--max_length 512 --completion_only_loss true)
+        # Single-machine (1 process); no DeepSpeed accum hardcode.
+        accel_config="finetuning/train_single.yaml"
+        # 52002 / 128 = 406; pin max_steps so the last incomplete batch is dropped.
+        max_steps_args=(--max_steps 406)
+        batch_size=8
+        grad_accum=16
+        save_steps=406
     fi
 
-    accelerate launch --config_file finetuning/train_z1.yaml -m finetuning.run_trainer_finetune \
+    accelerate launch --config_file "$accel_config" -m finetuning.run_trainer_finetune \
         --model_name_or_path "$model_path" \
         --selector_matrix_dir "$selector_dir" \
         --watermark_type "$w_type" \
@@ -130,20 +148,20 @@ run_train() {
         --run_name "$final_run_name" \
         --output_dir "$final_output_dir" \
         --watermark_seed $seed \
-        --max_steps 2500 \
+        "${max_steps_args[@]}" \
         --num_train_epochs 1 \
         --dtype bfloat16 \
         --attn_implementation sdpa \
         --bf16 true \
-        --per_device_train_batch_size 12 \
-        --per_device_eval_batch_size 12 \
+        --per_device_train_batch_size "$batch_size" \
+        --per_device_eval_batch_size "$batch_size" \
         --dataloader_num_workers 4 \
         --dataloader_pin_memory true \
         --gradient_checkpointing false \
-        --gradient_accumulation_steps 4 \
+        --gradient_accumulation_steps "$grad_accum" \
         --do_train true \
         --save_strategy steps \
-        --save_steps 500 \
+        --save_steps "$save_steps" \
         --report_to wandb \
         --warmup_ratio 0.1 \
         --learning_rate 2e-5 \

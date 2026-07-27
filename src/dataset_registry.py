@@ -4,9 +4,20 @@ from typing import Any
 
 from datasets import load_dataset
 
+from src.alpaca_split import load_alpaca_eval_dataset
+
 
 def load_registry_dataset(spec: dict[str, Any], **kwargs: Any):
     """Load a dataset entry from the registry."""
+    loader = spec.get("loader")
+    if loader == "alpaca_eval":
+        return load_alpaca_eval_dataset(
+            repo_id=spec["path"],
+            data_file=spec.get("data_file", "alpaca_eval.json"),
+        )
+    if loader is not None:
+        raise ValueError(f"Unknown dataset loader: {loader!r}")
+
     path = spec["path"]
     load_kwargs: dict[str, Any] = {
         "split": spec["split"],
@@ -96,5 +107,18 @@ dataset_registry = {
         "data_field": "content",
         "streaming": True,
     },
+    # Official AlpacaEval / AlpacaFarm eval instructions (805 prompts).
+    # Separate from tatsu-lab/alpaca FT data; instruction-prompted generation.
+    # Protocol: gold output ≥ 50 tokens (~574/805), shuffle seed 42, first 500.
+    "alpaca_eval": {
+        "path": "tatsu-lab/alpaca_eval",
+        "config": None,
+        "split": "eval",
+        "data_file": "alpaca_eval.json",
+        "data_field": "prompt",
+        "completion_field": "completion",
+        "streaming": False,
+        "loader": "alpaca_eval",
+        "prompt_mode": "instruction",
+    },
 }
-

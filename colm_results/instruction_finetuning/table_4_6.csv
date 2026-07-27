@@ -1,9 +1,0 @@
-method,model,tpr_1_fpr_mean,tpr_1_fpr_std,n_seeds
-openstamp,Llama-2-7B,1.000,,1
-openstamp,Mistral-7B,0.987,,1
-distilled,Llama-2-7B,0.974,,1
-distilled,Mistral-7B,0.534,,1
-gaussmark,Llama-2-7B,0.788,,1
-gaussmark,Mistral-7B,0.630,,1
-unremovable,Llama-2-7B,0.272,,1
-unremovable,Mistral-7B,0.534,,1

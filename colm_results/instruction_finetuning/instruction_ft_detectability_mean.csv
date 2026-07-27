@@ -1,0 +1,9 @@
+method,model,tpr_realnewslike,tpr_alpaca_eval,auroc_baseline,auroc_realnewslike,auroc_alpaca_eval,n_seeds
+openstamp,Llama-2-7B,1.0,0.699,1.0,1.0,0.977,3
+openstamp,Mistral-7B,0.998,0.454,1.0,1.0,0.948,3
+gaussmark,Llama-2-7B,0.775,0.301,0.988,0.98,0.885,3
+gaussmark,Mistral-7B,0.595,0.223,0.984,0.963,0.853,3
+distilled,Llama-2-7B,0.952,0.09,0.999,0.996,0.634,3
+distilled,Mistral-7B,0.936,0.066,1.0,0.997,0.597,3
+unremovable,Llama-2-7B,0.965,0.707,0.999,0.996,0.984,3
+unremovable,Mistral-7B,0.939,0.589,0.996,0.996,0.979,3
