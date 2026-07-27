@@ -178,8 +178,8 @@ cython_debug/
 finetuning/runpod_*.sh
 finetuning/run_train.local.sh
 finetuning/run_train_alpaca.sh
-finetuning/train_single.yaml
 finetuning/hub_*.sh
-scripts/aggregate_instruction_ft_results.py
-scripts/eval_instruction_ft.sh
+scripts/local/
+experiment_configs/local/
+src/local/
 .cursor/rules/runpod-*.mdc
