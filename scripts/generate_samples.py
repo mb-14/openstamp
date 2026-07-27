@@ -236,6 +236,7 @@ for key in selected_keys:
         )
         dataset = dataset.shuffle(seed=args.generation_seed)
     else:
+        # Shuffle with buffer
         dataset = dataset.shuffle(seed=args.generation_seed)
         dataset = dataset.filter(
             lambda x, field=data_field: filter_length(x, field)
@@ -307,25 +308,40 @@ watermarked_model = None
 watermarked_processor = None
 temperature = args.temperature
 
+# Instruction prompts have short reference answers that break LLR null scoring
+# (division by near-zero length). Use same-length unwatermarked generations instead.
+if instruction_mode:
+    print(
+        "Instruction dataset: generating unwatermarked null completions "
+        f"(len={args.max_tokens}) for human_text"
+    )
+    null_model = model
+    if args.step > 0:
+        if not args.checkpoint_dir:
+            raise ValueError("--checkpoint_dir is required when --step > 0")
+        lora_ckpt_path = os.path.join(
+            args.checkpoint_dir, f"checkpoint-{args.step}")
+        if "_config2" in args.checkpoint_dir:
+            null_model = AutoModelForCausalLM.from_pretrained(
+                lora_ckpt_path, device_map="auto", torch_dtype=torch.bfloat16
+            ).eval()
+        else:
+            peft_model = PeftModel.from_pretrained(model, lora_ckpt_path)
+            peft_model.merge_and_unload()
+            null_model = peft_model.eval().to(device)
 
-def strip_phi4_assistant_prefix(text: str) -> str:
-    if text.startswith("assistant"):
-        return text[len("assistant"):].lstrip()
-    return text
-
-
-def generate_continuations(gen_model, logits_processor=None):
-    """Generate fixed-length continuations for all prompt batches."""
-    texts = []
-    full_texts = []
+    human_text = []
     for batch in tqdm(prompts):
-        if len(texts) >= args.num_samples:
+        if len(human_text) >= args.num_samples:
             break
         with torch.no_grad():
             input_ids = batch["input_ids"]
             attention_mask = batch["attention_mask"]
-            do_sample = False if temperature == 0.0 else args.multinomial
-            gen_kwargs = dict(
+            if temperature == 0.0:
+                do_sample = False
+            else:
+                do_sample = args.multinomial
+            outputs = null_model.generate(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 top_p=args.top_p,
@@ -336,54 +352,17 @@ def generate_continuations(gen_model, logits_processor=None):
                 do_sample=do_sample,
                 pad_token_id=tokenizer.eos_token_id,
             )
-            if logits_processor is not None:
-                gen_kwargs["logits_processor"] = LogitsProcessorList([logits_processor])
-            outputs = gen_model.generate(**gen_kwargs)
-
             n_input_tokens = batch["input_ids"].shape[1]
             batch_continuations = tokenizer.batch_decode(
                 outputs[:, n_input_tokens:], skip_special_tokens=True)
             if args.model_name == "microsoft/phi-4":
                 batch_continuations = [
-                    strip_phi4_assistant_prefix(t) for t in batch_continuations
+                    (t[len("assistant"):].lstrip() if t.startswith("assistant") else t)
+                    for t in batch_continuations
                 ]
-            texts.extend(batch_continuations)
-            if args.model_name == "microsoft/phi-4":
-                for i in range(outputs.shape[0]):
-                    full_texts.append(
-                        " " + f"{batch['prompt_text'][i]}{batch_continuations[i]}"
-                    )
-            else:
-                full_texts.extend(
-                    tokenizer.batch_decode(outputs, skip_special_tokens=True)
-                )
-    return texts[:args.num_samples], full_texts[:args.num_samples]
+            human_text.extend(batch_continuations)
+    human_text = human_text[:args.num_samples]
 
-
-def apply_lora(target_model):
-    if args.step <= 0:
-        return target_model
-    if not args.checkpoint_dir:
-        raise ValueError("--checkpoint_dir is required when --step > 0")
-    lora_ckpt_path = os.path.join(args.checkpoint_dir, f"checkpoint-{args.step}")
-    if "_config2" in args.checkpoint_dir:
-        return AutoModelForCausalLM.from_pretrained(
-            lora_ckpt_path, device_map="auto", torch_dtype=torch.bfloat16
-        ).eval()
-    peft_model = PeftModel.from_pretrained(target_model, lora_ckpt_path)
-    peft_model.merge_and_unload()
-    return peft_model.eval().to(device)
-
-
-# Instruction prompts have short reference answers that break LLR null scoring
-# (division by near-zero length). Use same-length unwatermarked generations instead.
-if instruction_mode:
-    print(
-        "Instruction dataset: generating unwatermarked null completions "
-        f"(len={args.max_tokens}) for human_text"
-    )
-    null_model = apply_lora(model)
-    human_text, _ = generate_continuations(null_model)
     with torch.no_grad():
         if null_model is not model:
             del null_model
@@ -468,17 +447,86 @@ elif args.watermark == "rl":
     watermarked_model.eval()
 
 if args.step > 0:
-    watermarked_model = apply_lora(watermarked_model)
+    if not args.checkpoint_dir:
+        raise ValueError("--checkpoint_dir is required when --step > 0")
+    lora_ckpt_path = os.path.join(
+        args.checkpoint_dir, f"checkpoint-{args.step}")
+    if "_config2" in args.checkpoint_dir:
+        # Config 2 is full-finetuning, so we load the entire model
+        watermarked_model = AutoModelForCausalLM.from_pretrained(lora_ckpt_path, device_map="auto", torch_dtype=torch.bfloat16).eval()
+    else:
+        peft_model = PeftModel.from_pretrained(watermarked_model, lora_ckpt_path)
+        peft_model.merge_and_unload()
+        watermarked_model = peft_model.eval().to(device)
 
-model_text, full_model_text = generate_continuations(
-    watermarked_model if watermarked_model is not None else model,
-    logits_processor=watermarked_processor,
-)
+model_text = []
+full_model_text = []
+
+
+def strip_phi4_assistant_prefix(text: str) -> str:
+    if text.startswith("assistant"):
+        return text[len("assistant"):].lstrip()
+    return text
+
+
+for batch in tqdm(prompts):
+    if len(model_text) >= args.num_samples:
+        break
+    with torch.no_grad():
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        if temperature == 0.0:
+            do_sample = False
+        else:
+            do_sample = args.multinomial
+        if watermarked_model is not None:
+            outputs = watermarked_model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                top_p=args.top_p,
+                top_k=args.top_k,
+                max_new_tokens=args.max_tokens,
+                min_new_tokens=args.max_tokens,
+                temperature=temperature,
+                do_sample=do_sample,
+                pad_token_id=tokenizer.eos_token_id
+            )
+        elif watermarked_processor is not None:
+            outputs = model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                top_p=args.top_p,
+                top_k=args.top_k,
+                max_new_tokens=args.max_tokens,
+                min_new_tokens=args.max_tokens,
+                temperature=temperature,
+                do_sample=do_sample,
+                pad_token_id=tokenizer.eos_token_id,
+                logits_processor=LogitsProcessorList([watermarked_processor])
+            )
+
+        n_input_tokens = batch["input_ids"].shape[1]
+        batch_continuations = tokenizer.batch_decode(
+            outputs[:, n_input_tokens:], skip_special_tokens=True)
+        if args.model_name == "microsoft/phi-4":
+            batch_continuations = [strip_phi4_assistant_prefix(
+                t) for t in batch_continuations]
+        model_text.extend(batch_continuations)
+        if args.model_name == "microsoft/phi-4":
+            batch_size = outputs.shape[0]
+            for i in range(batch_size):
+                full_model_text.append(" " +
+                                       f"{batch['prompt_text'][i]}{batch_continuations[i]}"
+                                       )
+        else:
+            full_model_text.extend(tokenizer.batch_decode(
+                outputs, skip_special_tokens=True))
+
+model_text = model_text[:args.num_samples]
+full_model_text = full_model_text[:args.num_samples]
 
 with torch.no_grad():
     del model
-    if watermarked_model is not None:
-        del watermarked_model
     torch.cuda.empty_cache()
 
 # Create dict
