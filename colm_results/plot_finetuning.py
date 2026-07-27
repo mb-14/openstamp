@@ -32,10 +32,13 @@ MODELS = {
     "llama": {
         "plot_name": "finetuning_llama",
         "csv_suffix": "llama",
+        # Keep legend top edge at/below this data-y so it clears high TPR curves.
+        "legend_below": 0.66,
     },
     "mistral": {
         "plot_name": "finetuning_mistral",
         "csv_suffix": "mistral",
+        "legend_below": None,
     },
 }
 
@@ -63,12 +66,13 @@ def plot_finetuning(
     plot_name: str,
     out_dir: Path,
     use_tex: bool,
+    legend_below: float | None = None,
 ) -> list[Path]:
     use_tex = apply_paper_style(use_tex=use_tex)
     df_plot = df.copy()
     df_plot["label"] = df_plot["method"].map(METHOD_TO_LABEL)
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(3.4, 2.8))
     lines, labels = [], []
     for label in PLOT_ORDER:
         sub = df_plot[df_plot["label"] == label].sort_values("step")
@@ -96,13 +100,19 @@ def plot_finetuning(
     ax.set_ylabel(ylabel)
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
-    legend = ax.legend(
-        lines,
-        labels,
-        loc="upper right",
-        frameon=True,
-        handler_map={plt.Line2D: HandlerLine2D(numpoints=0)},
-    )
+    legend_kwargs: dict = {
+        "loc": "upper right",
+        "frameon": True,
+        "borderpad": 0.3,
+        "labelspacing": 0.3,
+        "handler_map": {plt.Line2D: HandlerLine2D(numpoints=0)},
+    }
+    if legend_below is not None:
+        # x in axes fraction (right edge), y in data coords.
+        legend_kwargs["bbox_to_anchor"] = (1.0, legend_below)
+        legend_kwargs["bbox_transform"] = ax.get_yaxis_transform()
+
+    legend = ax.legend(lines, labels, **legend_kwargs)
     if not use_tex:
         for text in legend.get_texts():
             if "OpenStamp" in text.get_text():
@@ -147,6 +157,7 @@ def main() -> None:
             plot_name=cfg["plot_name"],
             out_dir=args.out_dir,
             use_tex=args.tex,
+            legend_below=cfg.get("legend_below"),
         )
         for p in paths:
             print(f"  wrote {p}")

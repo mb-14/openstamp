@@ -130,7 +130,7 @@ def plot_family(
     bar_h = min(0.78 / n_b, 0.30)
     offsets = (np.arange(n_b) - (n_b - 1) / 2.0) * bar_h
 
-    fig, ax = plt.subplots(figsize=(3.5, 1.15 + 0.52 * len(method_labels)))
+    fig, ax = plt.subplots(figsize=(3.5, 2.8))
 
     # Subtle alternating row bands to group methods.
     for i, yi in enumerate(y):
