@@ -1,6 +1,6 @@
 # How OpenStamp Works
 
-OpenStamp watermarks an open-weight LLM by modifying its **unembedding** (final projection) layer, then detects the signal with a length-normalized log-likelihood ratio between the released watermarked checkpoint and a privately retained base model.
+OpenStamp watermarks an open-weight LLM by modifying its **unembedding** (final projection) layer, then detects the signal in generated text with a length-normalized log-likelihood ratio between the released watermarked checkpoint and a privately retained base model.
 
 <p align="center">
   <img src="assets/watermarking_overview.png" alt="OpenStamp embedding overview" width="100%"/>

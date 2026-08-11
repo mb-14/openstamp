@@ -1,37 +1,37 @@
 # OpenStamp
 
-A watermarking method for open-weight Large Language Models.
+Watermarking for open-weight language models.
 
 ## Background
 
-Most LLM watermarks bias token sampling at decode time. That works when a provider controls inference, but open-weight release breaks the assumption: anyone who downloads the checkpoint can disable generation-time watermarking and still produce fluent text.
+Most LLM watermarks work by tweaking token sampling at generation time. That is fine when you control the API, but once you release the weights, anyone can turn the watermark off and still get fluent text.
 
 <p align="center">
   <img src="assets/watermark_disable.png" alt="Disabling a decode-time watermark by commenting out the logits processor" width="70%"/>
 </p>
 
-The watermark must therefore live in the weights themselves, and remain detectable after users quantize, fine-tune, or paraphrase model outputs—conditions under which existing open-weight methods often fail.
+So for open models, the watermarking logic has to be baked into the weights. It also has to survive common post-release changes: quantization, fine-tuning, and paraphrasing of the output. Existing open-weight methods often break under those conditions.
 
-**OpenStamp** embeds the signal by adding a factorized offset to the unembedding layer, so ordinary sampling from the released checkpoint produces watermarked text. Detection compares a length-normalized log-likelihood ratio between that checkpoint and a privately retained base model. See [How it works](METHOD.md) for the full method.
+**OpenStamp** adds a small, factorized offset to the unembedding layer. Sampling from the released checkpoint then produces watermarked text. To detect, we compare a length-normalized log-likelihood ratio between that checkpoint and a privately held copy of the base model. Details are in [How it works](METHOD.md).
 
 <p align="center">
   <img src="assets/watermarking_overview.png" alt="OpenStamp embedding overview" width="100%"/>
 </p>
 
-On the detectability–utility frontier, OpenStamp reaches near-perfect detection at low false-positive rates while keeping perplexity competitive with prior open-weight baselines:
+OpenStamp sits near the top of the quality–detectability tradeoff: near-perfect detection at low false-positive rates, with perplexity in line with earlier open-weight baselines.
 
 <p align="center">
   <img src="assets/pareto_ppl_tpr.png" alt="Pareto plot of TPR vs perplexity on Llama-2-7B" width="80%"/>
 </p>
 
-Robustness still leaves clear headroom. After LLM paraphrasing, TPR@1%FPR falls from near 1.0 to about 0.91 on Llama-2-7B and 0.79 on Mistral-7B. Post-hoc LoRA fine-tuning erodes the signal further—OpenStamp remains ahead of GaussMark, KGW Distilled, and Unremovable, but detectability declines steadily with training steps:
+It is not perfect under attack. After LLM paraphrasing, TPR@1% FPR drops from nearly 1.0 to about 0.91 on Llama-2-7B and 0.79 on Mistral-7B. LoRA fine-tuning weakens the signal further. OpenStamp still outperforms GaussMark, KGW Distilled, and Unremovable, but detection performance degrades as fine-tuning continues:
 
 <p align="center">
   <img src="assets/finetuning_llama.png" alt="Finetuning durability on Llama-2-7B" width="45%"/>
   <img src="assets/finetuning_mistral.png" alt="Finetuning durability on Mistral-7B" width="45%"/>
 </p>
 
-## Setup Environment
+## Setup
 
 ```bash
 conda create -n openstamp python=3.12 -y
@@ -39,19 +39,18 @@ conda activate openstamp
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 pip install flash-attn --no-build-isolation
 pip install -r requirements.txt
-
 ```
 
 ## Download models
 
-By default the pipeline uses `meta-llama/Llama-2-13b-hf` as the PPL oracle and `Qwen/Qwen2.5-14B-Instruct` for paraphrasing. Download both from HuggingFace:
+By default the pipeline uses `meta-llama/Llama-2-13b-hf` as the PPL oracle and `Qwen/Qwen2.5-14B-Instruct` for paraphrasing. Download both from Hugging Face:
 
 ```bash
 hf download meta-llama/Llama-2-13b-hf
 hf download Qwen/Qwen2.5-14B-Instruct
 ```
 
-Download testing models:
+Download the models used for testing:
 
 ```bash
 hf download meta-llama/Llama-2-7b-hf
@@ -60,7 +59,7 @@ hf download mistralai/Mistral-7B-v0.3
 
 ## Run experiments
 
-Run the following command to generate watermarked samples and evaluate detection performance on the samples:
+Generate watermarked samples and evaluate detection:
 
 ```bash
 python scripts/run_config.py \
@@ -71,7 +70,7 @@ python scripts/run_config.py \
 	--eval_ppl
 ```
 
-You can then aggregate metrics across seeds into a CSV file:
+Aggregate metrics across seeds into a CSV:
 
 ```bash
 python scripts/aggregate_metrics.py \
@@ -79,7 +78,7 @@ python scripts/aggregate_metrics.py \
 	--output-csv results/aggregated_metrics.csv
 ```
 
-All available configs are in `experiment_configs/`:
+Configs live in `experiment_configs/`:
 
 - [OpenStamp](experiment_configs/openstamp.yaml)
 - [KGW](experiment_configs/kgw.yaml) ([Kirchenbauer et al.](https://arxiv.org/abs/2301.10226))
@@ -97,9 +96,9 @@ All available configs are in `experiment_configs/`:
 - [openstamp/qwen2.5-7b-openstamp-L251-delta1.0-gamma0.25](https://huggingface.co/openstamp/qwen2.5-7b-openstamp-L251-delta1.0-gamma0.25)
 - [openstamp/llama2-7b-openstamp-L254-delta1.0-gamma0.25](https://huggingface.co/openstamp/llama2-7b-openstamp-L254-delta1.0-gamma0.25)
 
-### Generating text from watermarked models
+### Generate text
 
-Load the watermarked model with`transformers` and run `generate` as usual; the watermark is applied during sampling.
+Load a watermarked model with `transformers` and call `generate` as usual—the watermark is already in the weights.
 
 ```python
 import torch
@@ -124,9 +123,9 @@ watermarked_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 print(watermarked_text)
 ```
 
-### Detecting watermarked text
+### Detect watermarked text
 
-A piece of text is classified as watermarked when the LLR exceeds a certain pre-defined **threshold**.
+Text is marked as watermarked when the LLR score is above a threshold you choose (calibrate it on your data).
 
 ```python
 import json
@@ -175,4 +174,3 @@ llr = float(scores[0])
 is_watermarked = llr > THRESHOLD
 print(llr, is_watermarked)
 ```
-
