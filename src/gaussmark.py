@@ -122,9 +122,6 @@ class GaussMark:
     @torch.no_grad()
     def llr_detect(self, texts):
         """Length-normalized LLR under key-augmented vs base next-token dists."""
-        if self.model is None:
-            raise RuntimeError("LLR detection requires a base model")
-
         self.model.eval()
         device = next(self.model.parameters()).device
         encodings = self.tokenizer(
