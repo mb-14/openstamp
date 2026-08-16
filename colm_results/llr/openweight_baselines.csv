@@ -1,0 +1,7 @@
+Method,Model,Dataset,StrengthParam,Strength,NSeeds,DefaultDetector,PPL,TPR@0.1%FPR,TPR@0.1%FPR_LLR,Delta_TPR@0.1%FPR,TPR@1%FPR,TPR@1%FPR_LLR,AUROC,AUROC_LLR,Source
+GaussMark,Llama-2-7b,realnewslike,sigma,0.04,3,key-gradient z-score,16.08±0.33,0.7373±0.0889,0.9220±0.0174,0.1847±0.0972,0.8700±0.0312,0.9587±0.0130,0.9911±0.0024,0.9974±0.0010,outputs/gaussmark_llr
+GaussMark,Mistral-7B-v0.3,realnewslike,sigma,0.005,3,key-gradient z-score,15.03±0.53,0.3493±0.1212,0.5660±0.1552,0.2167±0.0571,0.7293±0.0535,0.8373±0.0647,0.9802±0.0034,0.9884±0.0023,outputs/gaussmark_llr
+KGW Distilled,Llama-2-7b,realnewslike,delta,2.0,3,green-token z-score,17.19±0.50,0.9653±0.0225,1.0000±0.0000,0.0347±0.0225,0.9915±0.0064,1.0000±0.0000,0.9996±0.0003,1.0000±0.0000,outputs/distilled_llr
+KGW Distilled,Mistral-7B-v0.3,realnewslike,delta,2.0,3,green-token z-score,21.08±0.26,0.9960±0.0069,1.0000±0.0000,0.0040±0.0069,0.9973±0.0046,1.0000±0.0000,0.9998±0.0003,1.0000±0.0000,outputs/distilled_llr
+Unremovable,Llama-2-7b,realnewslike,epsilon,0.8,3,mean-Δ,15.52±0.36,0.9660±0.0164,1.0000±0.0000,0.0340±0.0164,0.9940±0.0040,1.0000±0.0000,0.9986±0.0008,1.0000±0.0000,colm_results_raw/unremovable_llr_comparison_per_seed.csv
+Unremovable,Mistral-7B-v0.3,realnewslike,epsilon,0.8,3,mean-Δ,14.23±0.30,0.9787±0.0110,1.0000±0.0000,0.0213±0.0110,0.9960±0.0000,1.0000±0.0000,0.9997±0.0002,1.0000±0.0000,outputs/unremovable_llr

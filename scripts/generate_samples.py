@@ -3,7 +3,7 @@ from src.openstamp import OpenStamp, Mode
 from src.christmark import ChristMark
 from src.gaussmark import GaussMark
 from src.kgwmark import KGWMark
-from src.kgw_distilled import KGWDistilled
+from src.kgw_distilled import KGWDistilled, resolve_base_model
 from src.unigramwm import Unigram
 import os
 import json
@@ -529,12 +529,17 @@ elif args.watermark == "noise":
         "unembedding_param_name": "lm_head",
     }
 elif args.watermark == "distilled":
+    try:
+        distilled_base_model = resolve_base_model(args.model_name)
+    except KeyError:
+        distilled_base_model = args.model_name
     config = {
         "gamma": args.gamma,
         "delta": args.delta,
         "seeding_scheme": "simple_1",
         "kgw_device": "cpu",
         "watermark_seed": args.watermark_seed,
+        "base_model": distilled_base_model,
     }
 elif args.watermark == "kgw" or args.watermark == "kgw_llr":
     config = {

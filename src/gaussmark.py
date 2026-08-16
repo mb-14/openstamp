@@ -1,10 +1,10 @@
 import torch
-from functools import cached_property
-import scipy.stats
+
+from src.llr import length_normalized_llr
 
 
 class GaussMark:
-    def __init__(self, sigma, seed, target_param_name, tokenizer, model):
+    def __init__(self, sigma, seed, target_param_name, tokenizer, model, llr_detection=False):
         """
         GaussMark-style structural watermarking for LLMs.
         Args:
@@ -12,39 +12,49 @@ class GaussMark:
             seed: seed for deterministic watermark key.
             target_param_name: string name of the layer to watermark (e.g. 'lm_head').
             tokenizer: HuggingFace tokenizer.
-            base_model: the unwatermarked base model for detection.
+            model: the unwatermarked base model.
+            llr_detection: if True, keep the base checkpoint clean and score with
+                length-normalized LLR (two forwards: base vs key-augmented).
         """
         self.sigma = sigma
         self.seed = seed
         self.target_param_name = target_param_name
         self.tokenizer = tokenizer
-        self.watermark_model(model)
+        self.llr_detection = bool(llr_detection)
+        self.model = model
+        if not self.llr_detection:
+            self.watermark_model(model)
 
     def watermark_key(self, shape):
         rng = torch.Generator()
         rng.manual_seed(self.seed)
         return torch.randn(shape, generator=rng) * self.sigma
 
+    def _target_weight(self):
+        module = self.model
+        for name in self.target_param_name.split('.')[:-1]:
+            module = getattr(module, name)
+        weight_name = self.target_param_name.split('.')[-1]
+        return getattr(module, weight_name)
+
+    def _add_key(self, sign=1.0):
+        weight = self._target_weight()
+        key = self.watermark_key(weight.shape).to(weight.device, weight.dtype)
+        with torch.no_grad():
+            weight.data.add_(sign * key)
+        return weight
+
     def watermark_model(self, model):
         """
         Add Gaussian watermark to the model’s specified layer.
         """
-        module = model
-        for name in self.target_param_name.split('.')[:-1]:
-            module = getattr(module, name)
-        weight_name = self.target_param_name.split('.')[-1]
-        weight = getattr(module, weight_name)
-
-        with torch.no_grad():
-            watermarked = weight.data + \
-                self.watermark_key(weight.shape).to(
-                    weight.device, weight.dtype)
-            getattr(module, weight_name).data.copy_(
-                    watermarked)
-
         self.model = model
+        self._add_key(sign=1.0)
 
     def score_text_batch(self, batch_text):
+        if self.llr_detection:
+            return self.llr_detect(batch_text)
+
         self.model.eval()
 
         with torch.enable_grad():
@@ -76,12 +86,7 @@ class GaussMark:
             # Compute log-likelihoods for each sequence
             log_likelihoods = log_probs_seq.sum(dim=-1)       # (B,)
 
-            # Locate the parameter to extract gradients from
-            module = self.model
-            for name in self.target_param_name.split('.')[:-1]:
-                module = getattr(module, name)
-            weight_name = self.target_param_name.split('.')[-1]
-            weight = getattr(module, weight_name)
+            weight = self._target_weight()
 
             grads = []
             for i in range(log_likelihoods.shape[0]):
@@ -113,3 +118,36 @@ class GaussMark:
             torch.cuda.empty_cache()
 
             return z_scores
+
+    @torch.no_grad()
+    def llr_detect(self, texts):
+        """Length-normalized LLR under key-augmented vs base next-token dists."""
+        if self.model is None:
+            raise RuntimeError("LLR detection requires a base model")
+
+        self.model.eval()
+        device = next(self.model.parameters()).device
+        encodings = self.tokenizer(
+            texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        ).to(device)
+        input_ids = encodings.input_ids
+        attention_mask = encodings.attention_mask
+
+        logits_base = self.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+        ).logits
+
+        self._add_key(sign=1.0)
+        try:
+            logits_marked = self.model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+            ).logits
+        finally:
+            self._add_key(sign=-1.0)
+
+        return length_normalized_llr(logits_base, logits_marked, input_ids, attention_mask)

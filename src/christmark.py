@@ -1,13 +1,17 @@
 """Unremovable watermark baseline (Christ et al., arXiv:2410.18861).
 
 Embeds a secret Gaussian key Δ ~ N(0, ε²I) into the final-layer bias
-(lm_head.bias). Detection scores text by the mean of Δ over distinct token IDs.
+(lm_head.bias). Default detection scores text by the mean of Δ over distinct
+token IDs. Optional LLR detection compares length-normalized log-likelihood
+under logits+Δ vs base logits (same protocol as OpenStamp / KGW+LLR).
 """
 
 from __future__ import annotations
 
 import torch
 import torch.nn as nn
+
+from src.llr import length_normalized_llr
 
 
 class ChristMark:
@@ -19,20 +23,25 @@ class ChristMark:
         model=None,
         vocab_size=None,
         verify_bias: bool = True,
+        llr_detection: bool = False,
     ):
         """
         Args:
             epsilon: stddev of Gaussian bias key (ε in the paper).
             seed: seed for deterministic watermark key.
             tokenizer: HuggingFace tokenizer.
-            model: causal LM to watermark (required for generation; None for detect-only).
+            model: causal LM. Required for generation (bias embedding) and for
+                LLR detection. For mean-Δ detection, model may be None.
             vocab_size: override vocab size for the key; defaults to model config or tokenizer.
-            verify_bias: if True and model is set, assert lm_head.bias affects logits.
+            verify_bias: if True and model is watermarked, assert lm_head.bias affects logits.
+            llr_detection: if True, score with length-normalized LLR and do not
+                embed Δ into the model (base forward + add Δ to logits).
         """
         self.epsilon = float(epsilon)
         self.seed = int(seed)
         self.tokenizer = tokenizer
         self.verify_bias = bool(verify_bias)
+        self.llr_detection = bool(llr_detection)
 
         if vocab_size is None:
             if model is not None and getattr(model.config, "vocab_size", None):
@@ -44,7 +53,12 @@ class ChristMark:
 
         self.model = None
         if model is not None:
-            self.watermark_model(model)
+            if self.llr_detection:
+                # Keep the base checkpoint clean; LLR adds Δ only to logits.
+                self.model = model
+                self.model.eval()
+            else:
+                self.watermark_model(model)
 
     def _watermark_key(self, vocab_size: int) -> torch.Tensor:
         rng = torch.Generator()
@@ -112,7 +126,14 @@ class ChristMark:
         print(f"Bias check OK (max logit delta vs zeroed bias: {max_diff:.4f})")
 
     def score_text_batch(self, batch_text):
-        """Return mean Δ over distinct token IDs for each text (higher = more watermarked)."""
+        """Score texts; higher means more watermarked.
+
+        Default: mean Δ over distinct token IDs.
+        With ``llr_detection``: length-normalized LLR of (logits+Δ) vs logits.
+        """
+        if self.llr_detection:
+            return self.llr_detect(batch_text)
+
         inputs = self.tokenizer(
             batch_text,
             padding=True,
@@ -144,3 +165,37 @@ class ChristMark:
                 scores.append(delta[unique].mean().item())
 
         return torch.tensor(scores, dtype=torch.float32)
+
+    @torch.no_grad()
+    def llr_detect(self, texts):
+        """Length-normalized LLR under bias-augmented vs base next-token dists.
+
+        Matches the OpenStamp / KGW+LLR shift convention (skip BOS / shift by 1).
+        """
+        if self.model is None:
+            raise RuntimeError("LLR detection requires a base model")
+
+        device = next(self.model.parameters()).device
+        encodings = self.tokenizer(
+            texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        ).to(device)
+        input_ids = encodings.input_ids
+        attention_mask = encodings.attention_mask
+
+        logits = self.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+        ).logits.float()  # (B, T, V); float32 for stable LLR
+
+        vocab = logits.shape[-1]
+        delta = self.delta
+        if delta.numel() != vocab:
+            raise RuntimeError(
+                f"Delta vocab_size={delta.numel()} does not match logits V={vocab}"
+            )
+        delta = delta.to(device=logits.device, dtype=torch.float32)
+        logits_marked = logits + delta
+        return length_normalized_llr(logits, logits_marked, input_ids, attention_mask)

@@ -1,0 +1,10 @@
+method: unremovable
+
+common:
+  gpus: [0]
+  datasets: [realnewslike]
+  watermark_seeds: [12997009, 22983996, 15485863]
+
+configs:
+  - model_name: mistralai/Mistral-7B-v0.3
+    epsilon: 0.8
