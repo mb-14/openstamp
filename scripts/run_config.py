@@ -19,6 +19,8 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.kgw_distilled import resolve_distilled_model  # noqa: E402
 
+LLR_METHODS = frozenset({"unremovable", "christ", "gaussmark", "distilled"})
+
 
 def _run_command(cmd: List[str], env: Dict[str, str]) -> Tuple[int, str, str]:
     process = subprocess.Popen(
@@ -166,6 +168,7 @@ def _run_job_common(args_and_locks: Tuple[Tuple[Any, Dict[str, Any]], Dict[Any, 
     method = runtime["method"]
     paraphrase = bool(runtime["paraphrase"])
     eval_ppl = bool(runtime["eval_ppl"])
+    eval_llr = bool(runtime["eval_llr"])
     generation_seed = int(runtime["generation_seed"])
     base_output_dir = runtime["base_output_dir"]
     default_num_samples = int(runtime["num_samples"])
@@ -268,6 +271,26 @@ def _run_job_common(args_and_locks: Tuple[Tuple[Any, Dict[str, Any]], Dict[Any, 
                 )
             run_summaries.append(f"test_watermarking_v1: ok ({eval_log})")
 
+            if eval_llr:
+                if method not in LLR_METHODS:
+                    return (
+                        f"Error on GPU {gpu}: --llr is not supported for method={method!r}. "
+                        f"Supported: {sorted(LLR_METHODS)}"
+                    )
+                llr_cmd = eval_cmd + ["--llr"]
+                print(f"Executing command: {' '.join(llr_cmd)}")
+                rc, stdout, stderr = _run_command(llr_cmd, env)
+                llr_log = os.path.join(log_dir, f"tw_llr_{timestamp}.log")
+                with open(llr_log, "w", encoding="utf-8") as handle:
+                    handle.write(stdout)
+                    handle.write(stderr)
+                if rc != 0:
+                    return (
+                        f"Error on GPU {gpu} during test_watermarking_v1 --llr. "
+                        f"See log: {llr_log}\nSTDOUT:\n{stdout.strip()}\nSTDERR:\n{stderr.strip()}"
+                    )
+                run_summaries.append(f"test_watermarking_v1 --llr: ok ({llr_log})")
+
             if eval_ppl:
                 eval_ppl_cmd = [
                     sys.executable,
@@ -333,6 +356,15 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run evaluate_ppl step.",
     )
+    parser.add_argument(
+        "--llr",
+        action="store_true",
+        help=(
+            "After the default detector, also run length-normalized LLR scoring "
+            "(unremovable/christ, gaussmark, distilled). Writes metrics_llr "
+            "without overwriting metrics."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -346,6 +378,11 @@ def main() -> int:
     jobs = _build_jobs(cfg)
     common = cfg["common"]
     method = str(cfg["method"])
+    if args.llr and method not in LLR_METHODS:
+        raise SystemExit(
+            f"--llr is not supported for method={method!r}. "
+            f"Supported: {sorted(LLR_METHODS)}"
+        )
     gpus = common["gpus"]
     runtime_common: Dict[str, Any] = {
         "method": method,
@@ -354,6 +391,7 @@ def main() -> int:
         "generation_seed": args.generation_seed,
         "paraphrase": args.paraphrase,
         "eval_ppl": args.eval_ppl,
+        "eval_llr": args.llr,
     }
 
     wrapped_jobs = [

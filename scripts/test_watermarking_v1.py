@@ -19,7 +19,7 @@ from transformers import AutoTokenizer
 
 from src.christmark import ChristMark
 from src.gaussmark import GaussMark
-from src.kgw_distilled import KGWDistilled
+from src.kgw_distilled import KGWDistilled, resolve_base_model
 from src.kgwmark import KGWMark
 from src.openstamp import OpenStamp
 from src.rlmark import RLMark
@@ -44,6 +44,15 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="Directory for saved plots (default: <output_file parent>/logs).",
+    )
+    parser.add_argument(
+        "--llr",
+        action="store_true",
+        help=(
+            "For unremovable/christ, gaussmark, or distilled: score with "
+            "length-normalized LLR instead of the default detector. Writes "
+            "metrics_llr (does not overwrite metrics)."
+        ),
     )
     return parser.parse_args()
 
@@ -127,28 +136,36 @@ def compute_metrics(watermark_scores: np.ndarray, null_scores: np.ndarray) -> di
     }
 
 
-def build_watermark(output_data: dict, model, tokenizer):
+def build_watermark(output_data: dict, model, tokenizer, llr: bool = False, base_model=None):
     watermark_type = output_data["watermark"]
     config = output_data["config"]
     batch_size = 64
 
     if watermark_type == "gaussmark":
+        if llr and model is None:
+            raise ValueError("GaussMark LLR detection requires a loaded model")
         watermark = GaussMark(
             sigma=config["sigma"],
             tokenizer=tokenizer,
             model=model,
             seed=config["watermark_seed"],
             target_param_name=config["target_param_name"],
+            llr_detection=llr,
         )
         batch_size = 8
     elif watermark_type in {"unremovable", "christ"}:
+        if llr and model is None:
+            raise ValueError("Unremovable LLR detection requires a loaded model")
         watermark = ChristMark(
             epsilon=config["epsilon"],
             seed=config["watermark_seed"],
             tokenizer=tokenizer,
-            model=None,
+            model=model if llr else None,
             vocab_size=config.get("vocab_size"),
+            llr_detection=llr,
         )
+        if llr:
+            batch_size = 8
     elif watermark_type in ["openstamp", "openstamp_binom", "openstamp_discrete"]:
         selector_matrix_dir = config.get("selector_matrix_dir")
         if not selector_matrix_dir:
@@ -183,6 +200,10 @@ def build_watermark(output_data: dict, model, tokenizer):
             distribution=config["distribution"],
         )
     elif watermark_type == "distilled":
+        if llr and (model is None or base_model is None):
+            raise ValueError(
+                "KGW Distilled LLR detection requires both distilled and base models"
+            )
         watermark = KGWDistilled(
             gamma=config["gamma"],
             delta=config["delta"],
@@ -190,7 +211,12 @@ def build_watermark(output_data: dict, model, tokenizer):
             hash_key=config["watermark_seed"],
             kgw_device=config["kgw_device"],
             tokenizer=tokenizer,
+            model=model if llr else None,
+            base_model=base_model if llr else None,
+            llr_detection=llr,
         )
+        if llr:
+            batch_size = 4
     elif watermark_type in ["kgw", "kgw_llr"]:
         watermark = KGWMark(
             gamma=config["gamma"],
@@ -312,15 +338,40 @@ def main() -> None:
         tokenizer.pad_token = tokenizer.eos_token
 
     watermark_type = output_data["watermark"]
-    should_load_model = watermark_type not in ["distilled", "kgw", "unigram", "christ", "unremovable"]
+    use_llr = bool(args.llr)
+    llr_methods = {"unremovable", "christ", "gaussmark", "distilled"}
+    if use_llr and watermark_type not in llr_methods:
+        raise SystemExit(
+            "--llr is only supported for unremovable/christ, gaussmark, or distilled outputs"
+        )
+
+    should_load_model = (
+        use_llr
+        or watermark_type
+        not in ["distilled", "kgw", "unigram", "christ", "unremovable"]
+    )
     if should_load_model:
         model, tokenizer = load_model(model_name)
     else:
         model = None
 
-    watermark, batch_size = build_watermark(output_data, model, tokenizer)
-    if watermark_type == "gaussmark":
+    base_model = None
+    if use_llr and watermark_type == "distilled":
+        config = output_data.get("config") or {}
+        base_model_name = config.get("base_model")
+        if not base_model_name:
+            base_model_name = resolve_base_model(model_name)
+        print(f"Base model name: {base_model_name}")
+        base_model, _ = load_model(base_model_name)
+
+    watermark, batch_size = build_watermark(
+        output_data, model, tokenizer, llr=use_llr, base_model=base_model
+    )
+    if watermark_type == "gaussmark" or use_llr:
         print(f"Batch size: {batch_size}")
+    if use_llr:
+        print(f"Detection: {watermark_type} LLR (writing metrics_llr)")
+        log_dir = os.path.join(log_dir, "llr")
 
     negative_z = get_scores(watermark, samples, "human_text", batch_size)
     mean_negative_z = negative_z.mean().item()
@@ -336,22 +387,28 @@ def main() -> None:
         batch_size,
         log_dir,
     )
-    output_data["metrics"] = metrics
-    print("Metrics:")
+    metrics_key = "metrics_llr" if use_llr else "metrics"
+    output_data[metrics_key] = metrics
+    print(f"{'LLR metrics' if use_llr else 'Metrics'}:")
     for key, value in metrics.items():
         print(f"{key}: {value}")
 
     with torch.no_grad():
         torch.cuda.empty_cache()
 
-    batch_size = batch_size // 2
+    batch_size = max(1, batch_size // 2)
 
     optional_columns = [
         ("dipper_text_lex60_order0", "metrics_dipper_text_lex60_order0", "Dipper 60 Metrics"),
         ("dipper_text_lex20_order0", "metrics_dipper_text_lex20_order0", "Dipper 20 Metrics"),
         ("llm_paraphrase", "metrics_llm_paraphrase", "LLM Paraphrase Metrics"),
     ]
-    for column, metrics_key, label in optional_columns:
+    if use_llr:
+        optional_columns = [
+            (col, f"{key}_llr", f"LLR {label}")
+            for col, key, label in optional_columns
+        ]
+    for column, out_key, label in optional_columns:
         if column not in samples:
             continue
         metrics = compute_scores(
@@ -362,7 +419,7 @@ def main() -> None:
             batch_size,
             log_dir,
         )
-        output_data[metrics_key] = metrics
+        output_data[out_key] = metrics
         print(f"{label}:")
         for key, value in metrics.items():
             print(f"    {key}: {value}")
