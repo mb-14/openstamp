@@ -24,6 +24,7 @@ from src.kgwmark import KGWMark
 from src.openstamp import OpenStamp
 from src.rlmark import RLMark
 from src.unigramwm import Unigram
+from src.sir import SIRMark
 from src.utils import load_model
 
 torch.manual_seed(42)
@@ -234,6 +235,19 @@ def build_watermark(output_data: dict, model, tokenizer, llr: bool = False, base
             hash_key=config["watermark_seed"],
             tokenizer=tokenizer,
         )
+    elif watermark_type == "sir":
+        watermark = SIRMark(
+            tokenizer=tokenizer,
+            delta=config["delta"],
+            chunk_length=config.get("chunk_length", 10),
+            seed=config["watermark_seed"],
+            model=model,
+            vocab_size=config.get("vocab_size"),
+            mapping_name=config.get("mapping_name"),
+            transform_model_name=config.get("transform_model_name"),
+            embedding_model_path=config.get("embedding_model_path"),
+        )
+        batch_size = 4
     elif watermark_type == "rl":
         watermark = RLMark(
             rl_model_path=config["rl_model_path"],
@@ -348,7 +362,7 @@ def main() -> None:
     should_load_model = (
         use_llr
         or watermark_type
-        not in ["distilled", "kgw", "unigram", "christ", "unremovable"]
+        not in ["distilled", "kgw", "unigram", "christ", "unremovable", "sir"]
     )
     if should_load_model:
         model, tokenizer = load_model(model_name)
