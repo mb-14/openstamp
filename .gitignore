@@ -174,6 +174,9 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# MarkLLM Hugging Face download cache
+third_party/MarkLLM/watermark/sir/model/.cache/
+
 # Local RunPod / Hub helpers (not for the public repo)
 finetuning/runpod_*.sh
 finetuning/run_train.local.sh

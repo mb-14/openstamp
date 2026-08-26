@@ -5,6 +5,7 @@ from src.gaussmark import GaussMark
 from src.kgwmark import KGWMark
 from src.kgw_distilled import KGWDistilled, resolve_base_model
 from src.unigramwm import Unigram
+from src.sir import SIRMark
 import os
 import json
 from pathlib import Path
@@ -48,7 +49,7 @@ def parse_args():
                         default="meta-llama/Llama-2-7b-hf")
     parser.add_argument('--generation_seed', type=int, default=42)
     parser.add_argument('--watermark', type=str,
-                        default="openstamp", choices=["openstamp", "openstamp_binom", "openstamp_discrete", "gaussmark", "unremovable", "christ", "noise", "distilled", "kgw", "kgw_llr", "rl", "unigram"],)
+                        default="openstamp", choices=["openstamp", "openstamp_binom", "openstamp_discrete", "gaussmark", "unremovable", "christ", "noise", "distilled", "kgw", "kgw_llr", "rl", "unigram", "sir"],)
     parser.add_argument('--distribution', type=str, default="symmetric_beta",
                         choices=["symmetric_beta", "gaussian",
                                  "uniform", "hidden_states", "truncated_normal", "low_rank"],
@@ -84,6 +85,30 @@ def parse_args():
         default="none",
         choices=["none", "nf4", "int8"],
         help="bitsandbytes load-time quantization for generation (none/nf4/int8)",
+    )
+    parser.add_argument(
+        "--chunk_length",
+        type=int,
+        default=10,
+        help="SIR word-chunk length used to form the semantic prefix",
+    )
+    parser.add_argument(
+        "--sir_mapping",
+        type=str,
+        default=None,
+        help="Optional path to a SIR vocab mapping JSON",
+    )
+    parser.add_argument(
+        "--sir_embedder",
+        type=str,
+        default=None,
+        help="Optional SIR embedding model path or HF id",
+    )
+    parser.add_argument(
+        "--sir_transform",
+        type=str,
+        default=None,
+        help="Optional path to SIR transform_model_cbert.pth",
     )
 
     args = parser.parse_args()
@@ -456,6 +481,19 @@ elif args.watermark == "kgw" or args.watermark == "kgw_llr":
 elif args.watermark == "unigram":
     watermark = Unigram(gamma=args.gamma, delta=args.delta, hash_key=args.watermark_seed, tokenizer=tokenizer)
     watermarked_processor = watermark.watermark
+elif args.watermark == "sir":
+    watermark = SIRMark(
+        tokenizer=tokenizer,
+        delta=args.delta,
+        chunk_length=args.chunk_length,
+        seed=args.watermark_seed,
+        model=model,
+        mapping_name=args.sir_mapping,
+        transform_model_name=args.sir_transform,
+        embedding_model_path=args.sir_embedder,
+        device=str(device),
+    )
+    watermarked_processor = watermark.watermark
 elif args.watermark == "rl":
     watermarked_model = convert_linear_layer_to_lora(
         model, part_module_name='decoder.layers.', lora_dim=128)
@@ -553,6 +591,17 @@ elif args.watermark == "unigram":
         "gamma": args.gamma,
         "delta": args.delta,
         "watermark_seed": args.watermark_seed,
+    }
+elif args.watermark == "sir":
+    config = {
+        "delta": args.delta,
+        "chunk_length": args.chunk_length,
+        "scale_dimension": 300,
+        "watermark_seed": args.watermark_seed,
+        "mapping_name": watermark.mapping_name,
+        "transform_model_name": watermark.transform_model_name,
+        "embedding_model_path": watermark.embedding_model_path,
+        "vocab_size": watermark.vocab_size,
     }
 elif args.watermark == "rl":
     config = {
