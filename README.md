@@ -174,3 +174,17 @@ llr = float(scores[0])
 is_watermarked = llr > THRESHOLD
 print(llr, is_watermarked)
 ```
+
+## Citation
+
+If you use OpenStamp, please cite the paper:
+
+```bibtex
+@inproceedings{bakshi2026openstamp,
+  title={OpenStamp: A Watermark for Open-Source Language Models},
+  author={Miroojin Bakshi and Saksham Rastogi and Danish Pruthi},
+  booktitle={Third Conference on Language Modeling},
+  year={2026},
+  url={https://openreview.net/forum?id=7bLM4IJf6T}
+}
+```
