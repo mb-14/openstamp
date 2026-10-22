@@ -117,6 +117,13 @@ def _build_output_file(
             f"{output_dir}/output_seed={watermark_seed}_delta={delta}_gamma={gamma}"
             f"_watermark={method}_dataset={dataset}"
         )
+    elif method == "sir":
+        delta = param["delta"]
+        chunk_length = param.get("chunk_length", 10)
+        output_file = (
+            f"{output_dir}/output_seed={watermark_seed}_delta={delta}_chunk={chunk_length}"
+            f"_watermark={method}_dataset={dataset}"
+        )
     else:
         raise ValueError(f"Unsupported watermark type {method}.")
 

@@ -1,0 +1,14 @@
+method: sir
+
+common:
+  gpus: [0]
+  datasets: [realnewslike]
+  watermark_seeds: [15485863]
+
+configs:
+  - model_name: meta-llama/Llama-2-7b-hf
+    delta: 1.0
+    chunk_length: 10
+  - model_name: mistralai/Mistral-7B-v0.3
+    delta: 1.0
+    chunk_length: 10
